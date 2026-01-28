@@ -150,7 +150,7 @@ if (default == 1) {
     if(length(which(external_br_length == 0))>0){
       external_br_length <- external_br_length[-which(external_br_length == 0)] # external branch length > 0
     }
-    subsamplesize <- round(sqrt(1/min(external_br_length)))
+    subsamplesize <- round(sqrt(coalescent.intervals(um_tree)$total.depth/min(external_br_length)))
     # sanity check:
     if (subsamplesize > num_sample_full){
       stop(paste("Error: the default subsample size", subsamplesize, "is larger than the (reduced) sample size", 
