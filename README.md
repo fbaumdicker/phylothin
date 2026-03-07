@@ -1,12 +1,10 @@
-<p align="right"> <img src="https://github.com/fbaumdicker/oversampling_correction/assets/100220185/abac73b1-70b3-433c-8379-1aeb67fcdcba" width="200"> </p>
+<p align="right"> <img src="phylothin.jpg" width="200"> </p>
 
 # *PhyloThin* 
 
-!!! THIS IS A PRELIMINARY VERSION !!! Feel free to explore :) Feedback is welcome.
+This github repository provides the software *PhyloThin*.
 
-This github repository provides the R-script *PhyloThin*. The preprint will be available soon (and anounced here).
-
-With *PhyloThin*, we present a fully automated statistical tool that can detect and correct for sampling bias in prokaryotic populations. Removing the strong sampling bias of bacteria allows to identify the effective amount of information and prevents misleading biased conclusions in various analysis.
+With *PhyloThin*, we present a fully automated statistical tool that can detect and correct for sampling bias in prokaryotic populations. Removing the strong sampling bias of bacteria allows to identify the effective amount of information and prevents misleading biased conclusions in various analysis, such as the estimation of the pangenome size and gene frequencies.
 
 ## Step 1: Install R
 
@@ -119,4 +117,4 @@ Rscript phylothin.r ./Example um_ListeriaMonocytogenes.nwk no_PATHd8
 ```
 
 
-**Date: 23.01.2025**
+**Date: 07.03.2026**
