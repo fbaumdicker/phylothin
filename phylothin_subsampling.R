@@ -17,30 +17,32 @@ library(ape) # package for the analysis of phylogenetics and evolution
 
 # extract command-line arguments:
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args) > 7) {
+if (length(args) > 9) {
   stop("Wrong command line input\n
        Usage is \"Rscript phylothin_subsampling.r path_to_folder input_tree 
-       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)\"", call.=FALSE)
+       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 }
-default <- 1
 runs <- NULL
 subsamplesize <- NULL
 basepath <- NULL
 input_tree_file <- NULL
-pathd8 <- 1
+pathd8 <- T
+mutation_sensitive <- F
 i <- 1
 while (i <= length(args)) {
   if (args[i] == "-r") {
     runs <- as.numeric(args[i + 1]) # number of subsamples
-    default <- 0
     i <- i + 2
   } else if (args[i] == "-s") {
     subsamplesize <- as.numeric(args[i + 1]) # size of subsamples
-    default <- 0
     i <- i + 2
   } else if (args[i] == "no_PATHd8") {
-    pathd8 <- 0 # skip PATHd8
+    pathd8 <- F # skip PATHd8
     i <- i + 1
+  } else if (args[i] == "-m") {
+    num_snp <- as.numeric(args[i + 1]) # number of variable sites
+    mutation_sensitive <- T
+    i <- i + 2
   } else {
     if (is.null(basepath)) { # first positional argument assumed to be basepath
       basepath <- args[i]
@@ -63,12 +65,12 @@ while (i <= length(args)) {
 if (is.null(basepath)) {
   stop("You need to specify the path to the data folder\n
        Usage is \"Rscript phylothin_subsampling.r path_to_folder input_tree 
-       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)\"", call.=FALSE)
+       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 } 
 if (is.null(input_tree_file)) {
   stop("Missing argument input_tree\n
        Usage is \"Rscript phylothin_subsampling.r path_to_folder input_tree 
-       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)\"", call.=FALSE)
+       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 } 
 
 # load (ultrametric) tree:
@@ -91,14 +93,23 @@ if (!file.exists(file.path(basepath, "phylothinoutput"))){ # output-folder for P
 
 print("start PhyloThin on full input tree.")
 
-Sys.setenv(phylothin = paste(basepath, "/phylothin.r", sep = ""))
+Sys.setenv(phylothin = paste(basepath, "/phylothin_mutationsensitive.r", sep = ""))
 Sys.setenv(path_to_folder = basepath)
 Sys.setenv(input_tree = input_tree_file)
 
-if (pathd8==0){ # skip PATHd8 since requested by input
-  system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade')
-} else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
-  system('Rscript $phylothin $path_to_folder $input_tree no_clade')
+if (mutation_sensitive){ # mutation sensitive thinning
+  Sys.setenv(number_variable_sites = num_snp)
+  if (!pathd8){ # skip PATHd8 since requested by input
+    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade -m $number_variable_sites')
+  } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
+    system('Rscript $phylothin $path_to_folder $input_tree no_clade -m $number_variable_sites')
+  }
+} else {
+  if (!pathd8){
+    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade')
+  } else{
+    system('Rscript $phylothin $path_to_folder $input_tree no_clade')
+  }
 }
 
 # load reduced (ultrametric) tree:
@@ -122,7 +133,7 @@ if (input_tree$Nnode < 2){ # "cintervals" can not be computed
 
 #### DEFINE PARAMETERS ############################################################################################
 
-if (pathd8==0){ # skip PATHd8 since requested by input
+if (!pathd8){ # skip PATHd8 since requested by input
   print("Making the reduced tree ultrametric with PATHd8 is skipped.")
   um_tree <- input_tree
 } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
@@ -142,7 +153,6 @@ if (pathd8==0){ # skip PATHd8 since requested by input
 }
 
 # compute default setting
-if (default == 1) {
   # compute default subsamplesize (on by PhyloThin reduced tree)
   if (is.null(subsamplesize)) {
     external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
@@ -153,23 +163,31 @@ if (default == 1) {
     subsamplesize <- round(sqrt(coalescent.intervals(um_tree)$total.depth/min(external_br_length)))
     # sanity check:
     if (subsamplesize > num_sample_full){
-      stop(paste("Error: the default subsample size", subsamplesize, "is larger than the (reduced) sample size", 
+      stop(paste("The default subsample size", subsamplesize, "is larger than the (reduced) sample size", 
                  num_sample_red, ". Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
                 or define your own subsample size: 'Rscript phylothin_subsampling.r path_to_folder input_tree 
-                (-r number_of_subsamples) -s subsample_size (no_PATHd8)'."))
+                (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites)'."))
     }
   }
   # compute default number of runs
   if (is.null(runs)) {
     runs <- round(100*num_sample_red/subsamplesize) # on average every tip will be sampled 100 times
   }
-}
+
 # sanity check:
 if (subsamplesize > num_sample_red){
-  stop(paste("Error: subsample size", subsamplesize, "has to be smaller than (reduced) sample size", num_sample_red, "."))
+  stop(paste("Subsample size", subsamplesize, "has to be smaller than (reduced) sample size", num_sample_red, "."))
+} else if (subsamplesize < 3){
+  stop(paste("The subsample size", subsamplesize, "is too small to use PhyloThin. Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
+                or define another subsample size: 'Rscript phylothin_subsampling.r path_to_folder input_tree 
+                (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites)'."))
 }
 print(paste("The following parameter setting is used for subsampling:", 
             runs, "drawings with a subsample size of", subsamplesize, "."))
+def_parameters <- data.frame(runs = runs, subsamplesize = subsamplesize)
+write.table(def_parameters, 
+            file = paste(basepath, "/phylothinoutput/parameters_", tree_name, "_subsampling.txt" ,sep = "" ),
+            quote = F, row.names = F, col.names = T)
 
 if (!file.exists(file.path(basepath, "phylothinoutput/subsampling"))){ # folder for sub-sampling output
   dir.create(file.path(basepath, "phylothinoutput/subsampling"))
@@ -177,14 +195,13 @@ if (!file.exists(file.path(basepath, "phylothinoutput/subsampling"))){ # folder 
 
 #### SUBSAMPLING ##################################################################################################
 
-subsample_table <- data.frame(sample = um_tree$tip.label, 
-                              num_sampled = rep(0, num_sample_red), 
-                              num_in_cluster = rep(0, num_sample_red))
-write.csv(subsample_table, file = paste(basepath, "/phylothinoutput/subsample_table_", tree_name, ".csv", sep = "" ),
-          quote = F, row.names = F)
+print("%%%%%%%%%%%%% start subsampling %%%%%%%%%%%%%")
 
-for (i in 1:runs) {
-  print(paste("%%%%%%% START Subsampling", i, "%%%%%%%"))
+Sys.setenv(phylothin = paste(basepath, "/phylothin_mutationsensitive.r", sep = ""))
+Sys.setenv(path_to_folder = paste(basepath, "/phylothinoutput/subsampling", sep = ""))
+Sys.setenv(path_to_folder_logs = paste(basepath, "/phylothinoutput/subsampling/logs", sep = ""))
+
+lapply(1:runs, function(i) { # subsampling & phylothin; TODO: parallelization
   set.seed(i)
   nosample_tips <- um_tree$tip.label[sample(1:num_sample_red, num_sample_red-subsamplesize)]
   sample_tree <- drop.tip(um_tree, nosample_tips)
@@ -194,31 +211,43 @@ for (i in 1:runs) {
 #### STEP 3: PHYLOTHIN ON SUBSAMPLES ##############################################################################
 ###################################################################################################################
   
-  Sys.setenv(phylothin = paste(basepath, "/phylothin.r", sep = ""))
-  Sys.setenv(path_to_folder = paste(basepath, "/phylothinoutput/subsampling", sep = ""))
   Sys.setenv(input_tree = paste("um_", tree_name, "_", i, ".nwk", sep = ""))
-  system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8')
+
+  if (mutation_sensitive) { # mutation sensitive thinning
+    Sys.setenv(number_variable_sites = num_snp)
+    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 -m $number_variable_sites')
+  } else {
+    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8')
+  }
   
-  # # remove unecessary output
-  # Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/k*", sep = ""))
-  # system('rm $remove_file')
-  # Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/r*", sep = ""))
-  # system('rm $remove_file')
-  # Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/t*", sep = ""))
-  # system('rm $remove_file')
-  # Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/check/*", sep = ""))
-  # system('rm $remove_file')
+  # remove unnecessary output
+  Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/k*", sep = ""))
+  system('rm $remove_file')
+  Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/r*", sep = ""))
+  system('rm $remove_file')
+  Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/t*", sep = ""))
+  system('rm $remove_file')
+  Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/check/*", sep = ""))
+  system('rm $remove_file')
+})
+
+print("%%%%%%%%%%%%% subsampling done %%%%%%%%%%%%%")
 
 ###################################################################################################################
 #### OUTPUT #######################################################################################################
 ###################################################################################################################
 
-  subsample_table <- read.csv(paste(basepath, "/phylothinoutput/subsample_table_", tree_name, ".csv", sep = "" ), header=T)
-  for (subsample_sample in setdiff(um_tree$tip.label, nosample_tips)) {
+subsample_table <- data.frame(sample = um_tree$tip.label, 
+                              num_sampled = rep(0, num_sample_red), 
+                              num_in_cluster = rep(0, num_sample_red))
+
+for (i in 1:runs) {
+  subtree_name <- paste("um_", tree_name, "_", i, sep = "")
+  sample_tree <- read.tree(paste(basepath, "/phylothinoutput/subsampling/um_", tree_name, "_", i, ".nwk", sep = ""))
+  for (subsample_sample in sample_tree$tip.label) {
     subsample_table[subsample_table$sample == subsample_sample,]$num_sampled <- 1 + 
       subsample_table[subsample_table$sample == subsample_sample,]$num_sampled
   }
-  subtree_name <- paste("um_", tree_name, "_", i, sep = "")
   if (file.exists(paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/clades_", subtree_name, ".csv", sep = "" ))) {
     clades_file <- read.csv(paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/clades_", subtree_name, ".csv", sep = "" ),
                             header=T)
@@ -228,14 +257,11 @@ for (i in 1:runs) {
         subsample_table[subsample_table$sample == clades_sample,]$num_in_cluster
     }
   }
-  write.csv(subsample_table, file = paste(basepath, "/phylothinoutput/subsample_table_", tree_name, ".csv", sep = "" ),
-            quote = F, row.names = F)
 }
 
-# Sys.setenv(remove_path = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/check", sep = ""))
-# system('rmdir $remove_path')
+Sys.setenv(remove_path = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/check", sep = ""))
+system('rmdir $remove_path')
 
-subsample_table <- read.csv(paste(basepath, "/phylothinoutput/subsample_table_", tree_name, ".csv", sep = "" ), header=T)
 subsample_table$oversampled <- subsample_table$num_in_cluster/subsample_table$num_sampled
 write.csv(subsample_table, file = paste(basepath, "/phylothinoutput/subsample_table_", tree_name, ".csv", sep = "" ),
           quote = F, row.names = F)
@@ -290,5 +316,7 @@ plot(dropped_tree, show.tip.label = F,
      main = paste(num_removed, "of", num_sample_full, "removed" ),
      sub = "after subsampling", col.sub = "blue")
 invisible(dev.off())
+
+print("PhyloThin done.")
 
 ###################################################################################################################

@@ -73,7 +73,7 @@ Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cl
 ### Input
 
 - *path_to_folder*: path to the folder where the input is stored and the output-folder will be generated.
-- *input_tree*: file-name of the inferred phylogenetic tree stored as a Newick-file in *path_to_folder*. As a first step the input tree is made ultrametric by using *PATHd8*. If you prefer your own tool to make the tree ultrametric, do so and give the ultrametric tree as the input tree.
+- *input_tree*: file-name of the inferred phylogenetic tree (rooted, not necessary ultrametric) stored as a Newick-file in *path_to_folder*. As a first step the input tree is made ultrametric by using *PATHd8*. If you prefer your own tool to make the tree ultrametric, do so and give the ultrametric tree as the input tree.
 - *priority_list*: optional csv-file stored in *path_to_folder* and containing the sample ids (same as the tip labels of the input tree) in the first column and their priority in the second column. Preferably, samples with priority *0* are removed, then those without priority *NA*, then those with low priority (high number) until finally those with the highest priority *1* are removed.
 - *no_PATHd8*: If *input_tree* is already ultrametric (you may have used your preferred tool) and *PATHd8* is not installed, you can skip *PATHd8* in *PhyloThin* by adding *"no_PATHd8"* in the command-line input to run *PhyloThin*.\
 !! CAUTION !! Make sure that the given *input_tree* is already ultrametric !! Otherwise *PhyloThin* may give you wrong results.
@@ -106,6 +106,21 @@ Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsampl
 
 For details on the computations of the default parameter setting, see "Supplementary Note 1: PhyloThin – Implementation" in the accompanying manuscript.
 
+### Low mutation rate - Mutation-Sensitive Thinning
+
+For low mutation rates, branches of length zero become more and more common (especially in large phylogenetic trees) which may violate the assumptions of *PhyloThin* and may lead to an overestimation of sampling bias. We therefore recommend ensuring that a sufficient number of variable sites were used to infer the phylogenetic tree. If this is not possible, we suggest cross-checking the results obtained with *PhyloThin* using the mutation-sensitive version of *PhyloThin*. In this version, an inferred mutation rate is incorporated into the statistical test.
+*Mutation-Sensitive Thinning* can be performed by providing the additional input *number_variable_sites* (the number of SNP positions used to infer the phylogenetic tree), as follows:
+
+```
+Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_clade) -m number_variable_sites
+```
+
+CAUTION: *Mutation-Sensitive Thinning* may underestimate sampling bias if the resolution of the phylogenetic tree is insufficient. To mitigate this effect, *Mutation-Sensitive Thinning* can be combined with *Subsampling* as follows:
+
+```
+Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) -m number_variable_sites
+```
+
 ## Test - Examples
 
 ```
@@ -117,4 +132,4 @@ Rscript phylothin.r ./Example um_ListeriaMonocytogenes.nwk no_PATHd8
 ```
 
 
-**Date: 07.03.2026**
+**Date: 12.03.2026**

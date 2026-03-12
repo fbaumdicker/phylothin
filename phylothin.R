@@ -3,7 +3,7 @@
 # by Franz Baumdicker and Hannah Götsch
 
 # Compile this code using:
-# Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_clade)
+# Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)
 
 ###################################################################################################################
 
@@ -28,24 +28,29 @@ suppressPackageStartupMessages({
 
 # extract command-line arguments:
 args <- commandArgs(trailingOnly=TRUE)
-if (length(args) > 5) {
+if (length(args) > 7) {
   stop("Wrong command line input\n
        Usage is \"Rscript phylothin.r path_to_folder input_tree 
-       (priority_list) (no_PATHd8) (no_clade)\"", call.=FALSE)
+       (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)\"", call.=FALSE)
 }
 basepath <- NULL
 input_tree_file <- NULL
-prio <- 0
-pathd8 <- 1
-no_clade <- 0
+prio <- F
+pathd8 <- T
+no_clade <- F
+mutation_sensitive <- F
 i <- 1
 while (i <= length(args)) {
   if (args[i] == "no_PATHd8") {
-    pathd8 <- 0 # skip PATHd8
+    pathd8 <- F # skip PATHd8
     i <- i + 1
   } else if (args[i] == "no_clade") {
-    no_clade <- 1 # no clade-output
+    no_clade <- T # no clade-output
     i <- i + 1
+  } else if (args[i] == "-m") {
+    num_snp <- as.numeric(args[i + 1]) # number of variable sites
+    mutation_sensitive <- T
+    i <- i + 2
   } else {
     if (is.null(basepath)) { # first positional argument assumed to be basepath
       basepath <- args[i]
@@ -60,7 +65,7 @@ while (i <= length(args)) {
         tree_name <- input_tree_file
       }
     } else { # third positional argument assumed to be priority list
-      prio <- 1 # priority list given
+      prio <- T # priority list given
       # load (optional) priority list
       priority_list_file <- args[i]
       priority_list <- read.csv(file.path(basepath, priority_list_file), header=F)
@@ -80,12 +85,12 @@ while (i <= length(args)) {
 if (is.null(basepath)) {
   stop("You need to specify the path to the data folder\n
   Usage is \"Rscript phylothin.r path_to_folder input_tree 
-  (priority_list) (no_PATHd8) (no_clade)\"", call.=FALSE)
+  (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)\"", call.=FALSE)
 } 
 if (is.null(input_tree_file)) {
   stop("Missing argument input_tree\n
   Usage is \"Rscript phylothin.r path_to_folder input_tree 
-  (priority_list) (no_PATHd8) (no_clade)\"", call.=FALSE)
+  (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)\"", call.=FALSE)
 } 
 
 # load (ultrametric) tree:
@@ -96,14 +101,11 @@ if (input_tree$Nnode < 2){ # "cintervals" can not be computed
 }
 
 if (length(input_tree$tip.label) > 10000) { # clade-output not possible for big trees (>10,000)
-  no_clade <- 1 # no clade-output
+  no_clade <- T # no clade-output
   print("Your tree is large (> 10,000 tips), clade-output skipped.")
 }
 
-if (pathd8==0){ # skip PATHd8 since requested by input
-  print("Making the given tree ultrametric with PATHd8 is skipped.")
-  um_tree <- input_tree
-} else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
+if (pathd8){ # make ultrametric tree with PATHd8 (Britton et al 2007)
   print("start calculating ultrametric tree with PATHd8.")
   # define paths needed in bash-script
   Sys.setenv(PATHd8 = paste(basepath, "/PATHd8", sep = ""))
@@ -117,6 +119,9 @@ if (pathd8==0){ # skip PATHd8 since requested by input
   # ultrametric tree
   um_tree <- read.tree(paste(basepath, "/um_", input_tree_file, sep = ""))
   if(class(um_tree)=="multiPhylo"){um_tree <- um_tree$`d8tree:`}
+} else { # skip PATHd8 since requested by input
+  print("Making the given tree ultrametric with PATHd8 is skipped.")
+  um_tree <- input_tree
 }
 
 # CAUTION: lot of memory needed for the following (can be skipped if no priority list is given and no clade-output is needed)
@@ -137,7 +142,7 @@ if (!file.exists(file.path(basepath, "phylothinoutput/check"))){
 ###################################################################################################################
 
 # start PhyloThin ...
-if (no_clade == 0) {
+if (!no_clade) {
   clades <- data.frame(samples = um_tree$tip.label, clade = rep(NA, length(um_tree$tip.label))) # tip-labels
 }
 save_tree <- um_tree # save the initial (ultrametric) tree 
@@ -211,6 +216,13 @@ if (sum(choose(scale_index,2) * cintervals$interval.length[rev_scale_index]) == 
   }
 }
 
+if (mutation_sensitive) { # compute mutation rate
+  theta <- num_snp/sum(um_tree$edge.length)
+  print(paste("mutation rate", theta, 
+              "(number of variable sites divided by total branch length of scaled ultrametric tree) computed."))
+  print("PhyloThin uses mutation sensitive thinning of the tree.")
+}
+
 ###### CHECK ######################################################################################################
 
 ## plot "coalescent times"
@@ -249,7 +261,10 @@ if(length(test_rev) > l_from_fi){
   }
 }
 
-if (prio == 1){ # priority list
+print(paste("At maximum", local_length, "coalescent intervals are used for testing."))
+#write.table(local_length, file = paste(basepath, "/phylothinoutput/testing_bound_", tree_name, ".txt" ,sep = "" ), quote = F, row.names = F, col.names = F)
+
+if (prio){ # priority list given
   # id of tips don't want to keep (priority 0)
   no_wantkeep_all <- priority_list[priority_list$NCBI_refseq == 0,]$tip_label
   # id of tips with no priority
@@ -257,77 +272,133 @@ if (prio == 1){ # priority list
                           setdiff(um_tree$tip.label, priority_list$tip_label))
 }
 
-if (no_clade == 0) {clade_num <- 1}
+if (!no_clade) {clade_num <- 1}
 
-while(removed && num_start - num_removed > 2 && local_length > 0){ # ensure to have at least two tips/samples
-  
-  # cumulative sums (starting from tips) of scaled coalescent times (cs_ctimes from above)
-  test <- cumsum(choose((um_tree$Nnode+1):2,2) * coalescent.intervals(um_tree)$interval.length)
-  
-  myprob <- pgamma(test,1:length(test))[1:local_length] # cumulative prob. of interest
-  
-  # remove tip if sum(T_i[(n-l):n]) (Gamma[l+1,1], l < l_max) or T_n (Exp[1]) are much smaller then expected:
-  if (min(myprob) < alpha_2 || myprob[1] < alpha_1){ 
-    external_br_index <- which(um_tree$edge[,2] <= length(um_tree$tip.label)) # find external branches
-    tip_index <- um_tree$edge[,2][external_br_index] # tip indices (of external branches)
+# removing algorithm ##################
+
+cutting_step <- function() {
+    external_br_index <<- which(um_tree$edge[,2] <= length(um_tree$tip.label)) # find external branches
+    tip_index <<- um_tree$edge[,2][external_br_index] # tip indices (of external branches)
     
     # positions of all (usually two) smallest edge length of external branch 
     # -> one of these tips should be removed; they are all in the same clade
-    all_min_branch <- which(near(um_tree$edge.length[external_br_index], min(um_tree$edge.length[external_br_index])))
+    all_min_branch <<- which(near(um_tree$edge.length[external_br_index], min(um_tree$edge.length[external_br_index])))
     
     # adjust clades-dataframe for this clade
-    clade_tips <- um_tree$tip.label[tip_index[all_min_branch]] # ids of clade-tips
-    if (no_clade == 0) { 
-    clade_samples <- clades$samples %in% clade_tips
-    clade_clades <- unique(clades[clade_samples,]$clade)
-    if (length(clade_clades) == 1){
-      if (is.na(clade_clades)){ # it is a new clade
-        clades[clade_samples,]$clade <- clade_num
-        clade_num <- clade_num +1
-      } # otherwise: one already defined clade, nothing to do
-    } else if (length(clade_clades[!is.na(clade_clades)]) == 1){ # additional tips are joining an existing clade
-        clades[clade_samples,]$clade <- clade_clades[!is.na(clade_clades)]
-    } else { # two or more clades are merging: one new big clade
-        clades[clades$clade %in% clade_clades,]$clade <- clade_num
-        clade_num <- clade_num +1
-    }
-    }
-    
-    # priority list
-    if (prio == 1){
-      # candidates to remove which have priority 0
-      no_wantkeep <- intersect(clade_tips, no_wantkeep_all) 
-      # candidates to remove which have no priority
-      nopriority <- intersect(clade_tips, nopriority_all) 
-      if(length(no_wantkeep) > 0){
-        min_branch_id <- no_wantkeep[1]
-      } else if (length(nopriority) > 0){ # there are samples with no priority
-        min_branch_id <- nopriority[1] # id of one sample with no priority
-      } else { # sample with "highest" priority (gets removed):
-        match_row <- which.max(priority_list[priority_list$tip_label %in% clade_tips,]$priority) # row in priority list
-        min_branch_id <- priority_list[priority_list$tip_label %in% clade_tips,]$tip_label[match_row] # id of sample with "highest" priority
+    clade_tips <<- um_tree$tip.label[tip_index[all_min_branch]] # ids of clade-tips
+    if (!no_clade) { 
+      clade_samples <<- clades$samples %in% clade_tips
+      clade_clades <<- unique(clades[clade_samples,]$clade)
+      if (length(clade_clades) == 1){
+        if (is.na(clade_clades)){ # it is a new clade
+          clades[clade_samples,]$clade <<- clade_num
+          clade_num <<- clade_num +1
+        } # otherwise: one already defined clade, nothing to do
+      } else if (length(clade_clades[!is.na(clade_clades)]) == 1){ # additional tips are joining an existing clade
+        clades[clade_samples,]$clade <<- clade_clades[!is.na(clade_clades)]
+      } else { # two or more clades are merging: one new big clade
+        clades[clades$clade %in% clade_clades,]$clade <<- clade_num
+        clade_num <<- clade_num +1
       }
     }
-    if (prio == 0){ # no priority list: remove one tip
-      min_branch_id <- clade_tips[1]
+    
+    # priority list given
+    if (prio){
+      # candidates to remove which have priority 0
+      no_wantkeep <<- intersect(clade_tips, no_wantkeep_all) 
+      # candidates to remove which have no priority
+      nopriority <<- intersect(clade_tips, nopriority_all) 
+      if(length(no_wantkeep) > 0){
+        min_branch_id <<- no_wantkeep[1]
+      } else if (length(nopriority) > 0){ # there are samples with no priority
+        min_branch_id <<- nopriority[1] # id of one sample with no priority
+      } else { # sample with "highest" priority (gets removed):
+        match_row <<- which.max(priority_list[priority_list$tip_label %in% clade_tips,]$priority) # row in priority list
+        min_branch_id <<- priority_list[priority_list$tip_label %in% clade_tips,]$tip_label[match_row] # id of sample with "highest" priority
+      }
+    } else { # no priority list: remove one tip
+      min_branch_id <<- clade_tips[1]
     }
     
-    removed_labels <- c(removed_labels, min_branch_id) # add id of to remove tip
-    um_tree <- drop.tip(um_tree, min_branch_id) # remove tip from tree
+    removed_labels <<- c(removed_labels, min_branch_id) # add id of to remove tip
+    um_tree <<- drop.tip(um_tree, min_branch_id) # remove tip from tree
+    
+    num_removed <<- num_removed + 1 
+    local_length <<- local_length - 1
+}
+#######################################
 
-    num_removed <- num_removed + 1 
-    local_length <- local_length - 1
-  } else {
-    removed <- F # gamma distr. reached; no further tip should be removed, stop the while loop
+while(removed && num_start - num_removed > 2 && local_length > 0){ # ensure to have at least two tips/samples
+  
+  if (!mutation_sensitive) { # basic PhyloThin thinning
+    
+    # cumulative sums (starting from tips) of scaled coalescent times (cs_ctimes from above)
+    test <- cumsum(choose((um_tree$Nnode+1):2,2) * coalescent.intervals(um_tree)$interval.length)
+    # (negativ coalescent intervals don't matter here (zero and negative have both prob zero))
+    
+    myprob <- pgamma(test,1:length(test))[1:local_length] # cumulative prob. of interest
+    
+    # remove tip if sum(T_i[(n-l):n]) (Gamma[l+1,1], l < l_max) or T_n (Exp[1]) are much smaller then expected:
+    if (min(myprob) < alpha_2 || myprob[1] < alpha_1){ 
+      cutting_step()
+    } else {
+      removed <- F # desired distr. reached; no further tip should be removed, stop the while loop
+    }
+    
+  } else { # mutation sensitive thinning
+    
+    # cumulative sums (starting from tips) of coalescent times
+    test <- cumsum(coalescent.intervals(um_tree)$interval.length)
+    test[test < 0] <- 0 # set negativ (due to rounding errors?) coalescent intervals to zero
+
+    geom_p <- 1/(1+2*theta/(((um_tree$Nnode+1):2)*(((um_tree$Nnode+1):2)-1))) # parameters of geometric distribution (starting from the tips)
+    # geom_p smaller for higher theta & closer to root (2)
+    myprob <- pgeom(test,geom_p)[1:local_length]
+    # mass of geom distr closer to zero for higher geom_p
+    
+    # geom_max: until when geom. distr. should be computed for convolution (larger = better)
+    geom_p_min <- 1/(1+2*theta/(((um_tree$Nnode+1):2)*(((um_tree$Nnode+1):2)-1)))[local_length] # smallest used parameter
+    geom_max <- 0
+    while (dgeom(geom_max,geom_p_min) > 1e-20) { # (smaller = better)
+      geom_max <- geom_max +1
+    }
+    
+    if (myprob[1] < alpha_1) { # last coal interval too small
+      print("Test on last coalescent interval has been successful.")
+      cutting_step() # cutting
+    } else { # cumsum probably too small
+      testing_sum <- T # control
+      j <- 1
+      geom_conv <- dgeom(0:geom_max,geom_p[j])
+      while (testing_sum) {
+        j <- j+1
+        # Fourier transform to compute convolution
+        geom_conv <- convolve(geom_conv, rev(dgeom(0:geom_max,geom_p[j])), type = "open") 
+        geom_conv <- geom_conv[1:(geom_max+1)] # reduce length back to geom_max
+        # cumulative probabilities (cdf)
+        conv_cdf <- cumsum(geom_conv)
+        if (conv_cdf[floor(test[j])+1] < alpha_2) {
+          print(paste("Test on sum of", j, "last coalescent interval has been successful."))
+          cutting_step() # cutting
+          testing_sum <- F
+        } 
+        if (testing_sum && j == local_length) {
+          testing_sum <- F
+          removed <- F # desired distr. reached; no further tip should be removed, stop the while loop
+        }
+      }
+    }
   }
 }
 
+print(paste("PhyloThin removed", num_removed, "of", num_start, "samples."))
+
 if (num_start - num_removed == 2){
-  print(paste(c("Warning: only two tips left. sample size: ", num_start), collapse=" "))
+  print(paste("Warning: only two tips left. sample size: ", num_start))
 }
 
 # check and format clades-dataframe
-if (no_clade == 0) { 
+if (!no_clade) { 
 for (i in unique(clades[!is.na(clades$clade),]$clade)){
   clade_ids <- subset(clades$samples, clades$clade == i)
   clade_keeper <- setdiff(clade_ids, removed_labels) # keepers in the current clade
@@ -435,10 +506,12 @@ abline(h = 1/scaling, col = "blue", lty=1)
 abline(v = local_length_rev+1.5, col = "darkgreen", lty=1)
 abline(v = l_from_fi+0.5, col = "green", lty=1)
 abline(v = num_start-num_removed+0.5, col = "red", lty=1)
-points((num_start-num_removed+1):num_start, 
-       choose((num_start-num_removed+1):num_start,2) * 
-         cintervals$interval.length[num_removed:1],
-       pch = 4, col = "red") 
+if (num_removed > 0) {
+  points((num_start-num_removed+1):num_start, 
+         choose((num_start-num_removed+1):num_start,2) * 
+           cintervals$interval.length[num_removed:1],
+         pch = 4, col = "red")
+}
 legend( x="topright", 
         legend=c("T_i=0","T_i used for scaling",paste("scaling factor:",1/scaling),
                  "bound defined through f_i","bound defined through pgamma", "removed"), 
@@ -451,7 +524,7 @@ invisible(dev.off()) # close the plotting device
 ###################################################################################################################
 
 # oversampled clades
-if (no_clade == 0) { 
+if (!no_clade) { 
 if(length(removed_labels)>0){
   write.csv(clades, file = paste(basepath, "/phylothinoutput/clades_", tree_name, ".csv" ,sep = "" ))
 }
@@ -505,6 +578,8 @@ pdf(paste(basepath, "/phylothinoutput/tree_", tree_name, ".pdf", sep = ""))
        sub = tree_name)
   tiplabels(tip = removed_ones, col = "red" , pch = 4)
 invisible(dev.off())
+
+print("PhyloThin done.")
 
 ###################################################################################################################
 
