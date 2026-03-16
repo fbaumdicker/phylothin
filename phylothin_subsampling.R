@@ -3,7 +3,7 @@
 # by Hannah Götsch
 
 # Compile this code using:
-# Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)
+# Rscript phylothin_subsampling.R path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)
 
 #### TUNING PARAMETER #############################################################################################
 
@@ -19,7 +19,7 @@ library(ape) # package for the analysis of phylogenetics and evolution
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args) > 9) {
   stop("Wrong command line input\n
-       Usage is \"Rscript phylothin_subsampling.r path_to_folder input_tree 
+       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree 
        (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 }
 runs <- NULL
@@ -64,12 +64,12 @@ while (i <= length(args)) {
 # sanity check:
 if (is.null(basepath)) {
   stop("You need to specify the path to the data folder\n
-       Usage is \"Rscript phylothin_subsampling.r path_to_folder input_tree 
+       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree 
        (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 } 
 if (is.null(input_tree_file)) {
   stop("Missing argument input_tree\n
-       Usage is \"Rscript phylothin_subsampling.r path_to_folder input_tree 
+       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree 
        (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 } 
 
@@ -93,7 +93,7 @@ if (!file.exists(file.path(basepath, "phylothinoutput"))){ # output-folder for P
 
 print("start PhyloThin on full input tree.")
 
-Sys.setenv(phylothin = paste(basepath, "/phylothin_mutationsensitive.r", sep = ""))
+Sys.setenv(phylothin = paste(basepath, "/phylothin.R", sep = ""))
 Sys.setenv(path_to_folder = basepath)
 Sys.setenv(input_tree = input_tree_file)
 
@@ -165,7 +165,7 @@ if (!pathd8){ # skip PATHd8 since requested by input
     if (subsamplesize > num_sample_full){
       stop(paste("The default subsample size", subsamplesize, "is larger than the (reduced) sample size", 
                  num_sample_red, ". Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
-                or define your own subsample size: 'Rscript phylothin_subsampling.r path_to_folder input_tree 
+                or define your own subsample size: 'Rscript phylothin_subsampling.R path_to_folder input_tree 
                 (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites)'."))
     }
   }
@@ -179,7 +179,7 @@ if (subsamplesize > num_sample_red){
   stop(paste("Subsample size", subsamplesize, "has to be smaller than (reduced) sample size", num_sample_red, "."))
 } else if (subsamplesize < 3){
   stop(paste("The subsample size", subsamplesize, "is too small to use PhyloThin. Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
-                or define another subsample size: 'Rscript phylothin_subsampling.r path_to_folder input_tree 
+                or define another subsample size: 'Rscript phylothin_subsampling.R path_to_folder input_tree 
                 (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites)'."))
 }
 print(paste("The following parameter setting is used for subsampling:", 
@@ -197,7 +197,7 @@ if (!file.exists(file.path(basepath, "phylothinoutput/subsampling"))){ # folder 
 
 print("%%%%%%%%%%%%% start subsampling %%%%%%%%%%%%%")
 
-Sys.setenv(phylothin = paste(basepath, "/phylothin_mutationsensitive.r", sep = ""))
+Sys.setenv(phylothin = paste(basepath, "/phylothin.R", sep = ""))
 Sys.setenv(path_to_folder = paste(basepath, "/phylothinoutput/subsampling", sep = ""))
 Sys.setenv(path_to_folder_logs = paste(basepath, "/phylothinoutput/subsampling/logs", sep = ""))
 
