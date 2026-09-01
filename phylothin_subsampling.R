@@ -3,7 +3,7 @@
 # by Hannah Götsch
 
 # Compile this code using:
-# Rscript phylothin_subsampling.R path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)
+# Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list) (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)
 
 #### TUNING PARAMETER #############################################################################################
 
@@ -19,13 +19,14 @@ library(ape) # package for the analysis of phylogenetics and evolution
 args <- commandArgs(trailingOnly=TRUE)
 if (length(args) > 9) {
   stop("Wrong command line input\n
-       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree 
+       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list)
        (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 }
 runs <- NULL
 subsamplesize <- NULL
 basepath <- NULL
 input_tree_file <- NULL
+prio <- F
 pathd8 <- T
 mutation_sensitive <- F
 i <- 1
@@ -56,6 +57,18 @@ while (i <= length(args)) {
       } else {
         tree_name <- input_tree_file
       }
+    } else { # third positional argument assumed to be priority list
+      prio <- T # priority list given
+      # load (optional) priority list
+      priority_list_file <- args[i]
+      priority_list <- read.csv(file.path(basepath, priority_list_file), header=F)
+      priority_list[,2] <- as.numeric(priority_list[,2])
+      # check if priority list has the right format
+      priority_list_check <- priority_list[-1, ]
+      if (sum(colSums(!is.na(priority_list_check)) > 0) > 2 || # no more than two non-empty columns
+          !is.numeric(priority_list_check[!is.na(priority_list_check[2]),2])){ # second column has numeric entries
+        stop("The given priority list is not in the right format.")
+      }
     }
     i <- i + 1
   }
@@ -64,12 +77,12 @@ while (i <= length(args)) {
 # sanity check:
 if (is.null(basepath)) {
   stop("You need to specify the path to the data folder\n
-       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree 
+       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list)
        (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 } 
 if (is.null(input_tree_file)) {
   stop("Missing argument input_tree\n
-       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree 
+       Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list)
        (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
 } 
 
@@ -96,19 +109,39 @@ print("start PhyloThin on full input tree.")
 Sys.setenv(phylothin = paste(basepath, "/phylothin.R", sep = ""))
 Sys.setenv(path_to_folder = basepath)
 Sys.setenv(input_tree = input_tree_file)
+if (prio) {
+  Sys.setenv(priority_list_file2 = priority_list_file)
+}
 
-if (mutation_sensitive){ # mutation sensitive thinning
-  Sys.setenv(number_variable_sites = num_snp)
-  if (!pathd8){ # skip PATHd8 since requested by input
-    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade -m $number_variable_sites')
-  } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
-    system('Rscript $phylothin $path_to_folder $input_tree no_clade -m $number_variable_sites')
+if (prio) { # priority list given
+  if (mutation_sensitive){ # mutation sensitive thinning
+    Sys.setenv(number_variable_sites = num_snp)
+    if (!pathd8){ # skip PATHd8 since requested by input
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 no_clade -m $number_variable_sites')
+    } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_clade -m $number_variable_sites')
+    }
+  } else {
+    if (!pathd8){
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 no_clade')
+    } else{
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_clade')
+    }
   }
 } else {
-  if (!pathd8){
-    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade')
-  } else{
-    system('Rscript $phylothin $path_to_folder $input_tree no_clade')
+  if (mutation_sensitive){ # mutation sensitive thinning
+    Sys.setenv(number_variable_sites = num_snp)
+    if (!pathd8){ # skip PATHd8 since requested by input
+      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade -m $number_variable_sites')
+    } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
+      system('Rscript $phylothin $path_to_folder $input_tree no_clade -m $number_variable_sites')
+    }
+  } else {
+    if (!pathd8){
+      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade')
+    } else{
+      system('Rscript $phylothin $path_to_folder $input_tree no_clade')
+    }
   }
 }
 
@@ -201,6 +234,12 @@ Sys.setenv(phylothin = paste(basepath, "/phylothin.R", sep = ""))
 Sys.setenv(path_to_folder = paste(basepath, "/phylothinoutput/subsampling", sep = ""))
 Sys.setenv(path_to_folder_logs = paste(basepath, "/phylothinoutput/subsampling/logs", sep = ""))
 
+if (prio) { # copy priority list in right folder
+  Sys.setenv(prio_list_path1 = paste(basepath, "/", priority_list_file, sep = ""))
+  Sys.setenv(prio_list_path2 = paste(basepath, "/phylothinoutput/subsampling/", priority_list_file, sep = ""))
+  system('cp $prio_list_path1 $prio_list_path2')
+}
+
 lapply(1:runs, function(i) { # subsampling & phylothin; TODO: parallelization
   set.seed(i)
   nosample_tips <- um_tree$tip.label[sample(1:num_sample_red, num_sample_red-subsamplesize)]
@@ -213,11 +252,20 @@ lapply(1:runs, function(i) { # subsampling & phylothin; TODO: parallelization
   
   Sys.setenv(input_tree = paste("um_", tree_name, "_", i, ".nwk", sep = ""))
 
-  if (mutation_sensitive) { # mutation sensitive thinning
-    Sys.setenv(number_variable_sites = num_snp)
-    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 -m $number_variable_sites')
+  if (prio) { # priority list given
+    if (mutation_sensitive) { # mutation sensitive thinning
+      Sys.setenv(number_variable_sites = num_snp)
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 -m $number_variable_sites')
+    } else {
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8')
+    }
   } else {
-    system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8')
+    if (mutation_sensitive) { # mutation sensitive thinning
+      Sys.setenv(number_variable_sites = num_snp)
+      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 -m $number_variable_sites')
+    } else {
+      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8')
+    }
   }
   
   # remove unnecessary output
@@ -230,6 +278,10 @@ lapply(1:runs, function(i) { # subsampling & phylothin; TODO: parallelization
   Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/check/*", sep = ""))
   system('rm $remove_file')
 })
+
+if (prio) { # remove copy priority list
+  system('rm $prio_list_path2')
+}
 
 print("%%%%%%%%%%%%% subsampling done %%%%%%%%%%%%%")
 

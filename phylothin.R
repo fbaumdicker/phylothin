@@ -76,6 +76,7 @@ while (i <= length(args)) {
           !is.numeric(priority_list_check[!is.na(priority_list_check[2]),2])){ # second column has numeric entries
         stop("The given priority list is not in the right format.")
       }
+      colnames(priority_list) <- c("tip_label", "priority")
     }
     i <- i + 1
   }
@@ -216,6 +217,9 @@ if (sum(choose(scale_index,2) * cintervals$interval.length[rev_scale_index]) == 
   }
 }
 
+write.table(1/scaling, file = paste0(basepath, "/phylothinoutput/check/scalingfactor_", tree_name, ".txt"), 
+            quote = F, row.names = F, col.names = F)
+
 if (mutation_sensitive) { # compute mutation rate
   theta <- num_snp/sum(um_tree$edge.length)
   print(paste("mutation rate", theta, 
@@ -266,7 +270,7 @@ print(paste("At maximum", local_length, "coalescent intervals are used for testi
 
 if (prio){ # priority list given
   # id of tips don't want to keep (priority 0)
-  no_wantkeep_all <- priority_list[priority_list$NCBI_refseq == 0,]$tip_label
+  no_wantkeep_all <- priority_list[priority_list$priority == 0,]$tip_label
   # id of tips with no priority
   nopriority_all <- union(priority_list[is.na(priority_list$priority)]$tip_label,
                           setdiff(um_tree$tip.label, priority_list$tip_label))
