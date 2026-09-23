@@ -3,7 +3,7 @@
 # by Franz Baumdicker and Hannah Götsch
 
 # Compile this code using:
-# Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)
+# Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cluster) (-m number_variable_sites)
 
 ###################################################################################################################
 
@@ -31,21 +31,21 @@ args <- commandArgs(trailingOnly=TRUE)
 if (length(args) > 7) {
   stop("Wrong command line input\n
        Usage is \"Rscript phylothin.r path_to_folder input_tree 
-       (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)\"", call.=FALSE)
+       (priority_list) (no_PATHd8) (no_cluster) (-m number_variable_sites)\"", call.=FALSE)
 }
 basepath <- NULL
 input_tree_file <- NULL
 prio <- F
 pathd8 <- T
-no_clade <- F
+no_cluster <- F
 mutation_sensitive <- F
 i <- 1
 while (i <= length(args)) {
   if (args[i] == "no_PATHd8") {
     pathd8 <- F # skip PATHd8
     i <- i + 1
-  } else if (args[i] == "no_clade") {
-    no_clade <- T # no clade-output
+  } else if (args[i] == "no_cluster") {
+    no_cluster <- T # no cluster-output
     i <- i + 1
   } else if (args[i] == "-m") {
     num_snp <- as.numeric(args[i + 1]) # number of variable sites
@@ -86,12 +86,12 @@ while (i <= length(args)) {
 if (is.null(basepath)) {
   stop("You need to specify the path to the data folder\n
   Usage is \"Rscript phylothin.r path_to_folder input_tree 
-  (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)\"", call.=FALSE)
+  (priority_list) (no_PATHd8) (no_cluster) (-m number_variable_sites)\"", call.=FALSE)
 } 
 if (is.null(input_tree_file)) {
   stop("Missing argument input_tree\n
   Usage is \"Rscript phylothin.r path_to_folder input_tree 
-  (priority_list) (no_PATHd8) (no_clade) (-m number_variable_sites)\"", call.=FALSE)
+  (priority_list) (no_PATHd8) (no_cluster) (-m number_variable_sites)\"", call.=FALSE)
 } 
 
 # load (ultrametric) tree:
@@ -101,9 +101,9 @@ if (input_tree$Nnode < 2){ # "cintervals" can not be computed
   stop("Your tree has only one node. PhyloThin can not be used.")
 }
 
-if (length(input_tree$tip.label) > 10000) { # clade-output not possible for big trees (>10,000)
-  no_clade <- T # no clade-output
-  print("Your tree is large (> 10,000 tips), clade-output skipped.")
+if (length(input_tree$tip.label) > 10000) { # cluster-output not possible for big trees (>10,000)
+  no_cluster <- T # no cluster-output
+  print("Your tree is large (> 10,000 tips), cluster-output skipped.")
 }
 
 if (pathd8){ # make ultrametric tree with PATHd8 (Britton et al 2007)
@@ -125,10 +125,12 @@ if (pathd8){ # make ultrametric tree with PATHd8 (Britton et al 2007)
   um_tree <- input_tree
 }
 
-# CAUTION: lot of memory needed for the following (can be skipped if no priority list is given and no clade-output is needed)
-if (is.ultrametric(um_tree) == F){ # make the ultrametric tree really ultrametric (precision/rounding errors)
-  um_tree <- nnls.tree(cophenetic(um_tree), um_tree, method = "ultrametric", 
-                    rooted = is.rooted(um_tree), trace = 0)
+# CAUTION: lot of memory needed for the following (can be skipped if no priority list is given and no cluster-output is needed)
+if (!(!prio & no_cluster)){
+  if (is.ultrametric(um_tree) == F){ # make the ultrametric tree really ultrametric (precision/rounding errors)
+    um_tree <- nnls.tree(cophenetic(um_tree), um_tree, method = "ultrametric", 
+                      rooted = is.rooted(um_tree), trace = 0)
+  }
 }
 
 # create output folders (if not already exist)
@@ -143,8 +145,8 @@ if (!file.exists(file.path(basepath, "phylothinoutput/check"))){
 ###################################################################################################################
 
 # start PhyloThin ...
-if (!no_clade) {
-  clades <- data.frame(samples = um_tree$tip.label, clade = rep(NA, length(um_tree$tip.label))) # tip-labels
+if (!no_cluster) { # create cluster-dataframe
+  clusters <- data.frame(samples = um_tree$tip.label, cluster = rep(NA, length(um_tree$tip.label))) # tip-labels
 }
 save_tree <- um_tree # save the initial (ultrametric) tree 
 
@@ -220,11 +222,30 @@ if (sum(choose(scale_index,2) * cintervals$interval.length[rev_scale_index]) == 
 write.table(1/scaling, file = paste0(basepath, "/phylothinoutput/check/scalingfactor_", tree_name, ".txt"), 
             quote = F, row.names = F, col.names = F)
 
-if (mutation_sensitive) { # compute mutation rate
-  theta <- num_snp/sum(um_tree$edge.length)
+# tree-resolution high enough:
+if (mutation_sensitive) {
+  theta <- num_snp/sum(um_tree$edge.length) # mutation rate
   print(paste("mutation rate", theta, 
               "(number of variable sites divided by total branch length of scaled ultrametric tree) computed."))
   print("PhyloThin uses mutation sensitive thinning of the tree.")
+  # which will be the first test that would remove distance zero:
+  f_kn <- function(k) prod(1/(1+2*theta/(((num_start-k+2):num_start)*((num_start-k+1):(num_start-1)))))
+  kn <- min(which(sapply(2:num_start, f_kn) < alpha_2))+1
+  print(paste("The smallest cluster of highly related samples of distance zero, which are reliably detected, contains at least",
+              kn, "samples. Smaller clusters may also be detected."))
+  if (kn/num_start > 0.1 & kn > 2){ # warning for too low tree-resolution
+    print(paste("Warning: This minimal cluster-size is quite large. A lot of sampling bias may remain undetected.", 
+          "Consider to include more SNPs in your tree-inference (soft core genome) and/or use the subsampling option in PhyloThin."))
+  }
+} else { # minimal mutation rate recommended for classic PhyloThin
+  # distance zero would be removed by mut.-sens.-thin.: f_kn < alpha_2 for kn = 2
+  # 1/(1+2*theta/(num_start*(num_start-1))) < alpha_2
+  theta <- (1/alpha_2-1)*(num_start*(num_start-1))/2 # recommended mutation rate
+  num_snp <- theta*sum(um_tree$edge.length) # recommended number of SNPs
+  print(paste("The infinite-mutation-rate-limit of PhyloThin is a perfect approximation if your tree-inference",
+              "is based on at least", num_snp, "SNPs. If this is by far not the case, to get more precise results consider to",
+              "include more SNPs in your tree-inference (soft core genome) and/or use the mutation-sensitive-thinning",
+              "option in PhyloThin (provide the number of SNPs). Otherwise sampling bias may be overestimated."))
 }
 
 ###### CHECK ######################################################################################################
@@ -276,7 +297,7 @@ if (prio){ # priority list given
                           setdiff(um_tree$tip.label, priority_list$tip_label))
 }
 
-if (!no_clade) {clade_num <- 1}
+if (!no_cluster) {cluster_num <- 1}
 
 # removing algorithm ##################
 
@@ -285,43 +306,43 @@ cutting_step <- function() {
     tip_index <<- um_tree$edge[,2][external_br_index] # tip indices (of external branches)
     
     # positions of all (usually two) smallest edge length of external branch 
-    # -> one of these tips should be removed; they are all in the same clade
+    # -> one of these tips should be removed; they are all in the same cluster
     all_min_branch <<- which(near(um_tree$edge.length[external_br_index], min(um_tree$edge.length[external_br_index])))
     
-    # adjust clades-dataframe for this clade
-    clade_tips <<- um_tree$tip.label[tip_index[all_min_branch]] # ids of clade-tips
-    if (!no_clade) { 
-      clade_samples <<- clades$samples %in% clade_tips
-      clade_clades <<- unique(clades[clade_samples,]$clade)
-      if (length(clade_clades) == 1){
-        if (is.na(clade_clades)){ # it is a new clade
-          clades[clade_samples,]$clade <<- clade_num
-          clade_num <<- clade_num +1
-        } # otherwise: one already defined clade, nothing to do
-      } else if (length(clade_clades[!is.na(clade_clades)]) == 1){ # additional tips are joining an existing clade
-        clades[clade_samples,]$clade <<- clade_clades[!is.na(clade_clades)]
-      } else { # two or more clades are merging: one new big clade
-        clades[clades$clade %in% clade_clades,]$clade <<- clade_num
-        clade_num <<- clade_num +1
+    # adjust clusters-dataframe for this cluster
+    cluster_tips <<- um_tree$tip.label[tip_index[all_min_branch]] # ids of cluster-tips
+    if (!no_cluster) { 
+      cluster_samples <<- clusters$samples %in% cluster_tips
+      cluster_clusters <<- unique(clusters[cluster_samples,]$cluster)
+      if (length(cluster_clusters) == 1){
+        if (is.na(cluster_clusters)){ # it is a new cluster
+          clusters[cluster_samples,]$cluster <<- cluster_num
+          cluster_num <<- cluster_num +1
+        } # otherwise: one already defined cluster, nothing to do
+      } else if (length(cluster_clusters[!is.na(cluster_clusters)]) == 1){ # additional tips are joining an existing cluster
+        clusters[cluster_samples,]$cluster <<- cluster_clusters[!is.na(cluster_clusters)]
+      } else { # two or more clusters are merging: one new big cluster
+        clusters[clusters$cluster %in% cluster_clusters,]$cluster <<- cluster_num
+        cluster_num <<- cluster_num +1
       }
     }
     
     # priority list given
     if (prio){
       # candidates to remove which have priority 0
-      no_wantkeep <<- intersect(clade_tips, no_wantkeep_all) 
+      no_wantkeep <<- intersect(cluster_tips, no_wantkeep_all) 
       # candidates to remove which have no priority
-      nopriority <<- intersect(clade_tips, nopriority_all) 
+      nopriority <<- intersect(cluster_tips, nopriority_all) 
       if(length(no_wantkeep) > 0){
         min_branch_id <<- no_wantkeep[1]
       } else if (length(nopriority) > 0){ # there are samples with no priority
         min_branch_id <<- nopriority[1] # id of one sample with no priority
       } else { # sample with "highest" priority (gets removed):
-        match_row <<- which.max(priority_list[priority_list$tip_label %in% clade_tips,]$priority) # row in priority list
-        min_branch_id <<- priority_list[priority_list$tip_label %in% clade_tips,]$tip_label[match_row] # id of sample with "highest" priority
+        match_row <<- which.max(priority_list[priority_list$tip_label %in% cluster_tips,]$priority) # row in priority list
+        min_branch_id <<- priority_list[priority_list$tip_label %in% cluster_tips,]$tip_label[match_row] # id of sample with "highest" priority
       }
     } else { # no priority list: remove one tip
-      min_branch_id <<- clade_tips[1]
+      min_branch_id <<- cluster_tips[1]
     }
     
     removed_labels <<- c(removed_labels, min_branch_id) # add id of to remove tip
@@ -398,29 +419,32 @@ while(removed && num_start - num_removed > 2 && local_length > 0){ # ensure to h
 print(paste("PhyloThin removed", num_removed, "of", num_start, "samples."))
 
 if (num_start - num_removed == 2){
-  print(paste("Warning: only two tips left. sample size: ", num_start))
+  print(paste("Warning: only two tips left. initial sample size: ", num_start))
+}
+if (local_length == 0){
+  print("Warning: upper removal threshold reached.")
 }
 
-# check and format clades-dataframe
-if (!no_clade) { 
-for (i in unique(clades[!is.na(clades$clade),]$clade)){
-  clade_ids <- subset(clades$samples, clades$clade == i)
-  clade_keeper <- setdiff(clade_ids, removed_labels) # keepers in the current clade
-  if (length(clade_keeper) == 0){ # no keeper in the clade
-    print("Error: Something went wrong in computing the clades. (there exists a clade with no keeper)")
-  } else if(length(clade_keeper) > 1){ # more than one keeper in the clade
-    clade_tree <- drop.tip(save_tree, tip = setdiff(save_tree$tip.label,clade_ids)) # subtree of the current clade
-    distmatrix <- cophenetic.phylo(clade_tree) # distance-matrix; CAUTION: does not work for big trees (>10,000)
-    distmatrix_red <- distmatrix[clade_keeper,setdiff(clade_ids,clade_keeper)] # relevant distances
-    clade_removed_more_keeper <- c()
-    if (length(setdiff(clade_ids,clade_keeper)) == 1){ # only one removed tip in clade
-      if (length(unique(distmatrix_red)) > 1){ # remove "unnecessary" keeper from clade
-        clades[clades$samples %in% names(distmatrix_red[distmatrix_red != min(distmatrix_red)]),]$clade <- NA
-        #print("Error: Something went wrong in computing the clades.")
+# check and format clusters-dataframe
+if (!no_cluster) { 
+for (i in unique(clusters[!is.na(clusters$cluster),]$cluster)){
+  cluster_ids <- subset(clusters$samples, clusters$cluster == i)
+  cluster_keeper <- setdiff(cluster_ids, removed_labels) # keepers in the current cluster
+  if (length(cluster_keeper) == 0){ # no keeper in the cluster
+    print("Error: Something went wrong in computing the clusters. (there exists a cluster with no keeper)")
+  } else if(length(cluster_keeper) > 1){ # more than one keeper in the cluster
+    cluster_tree <- drop.tip(save_tree, tip = setdiff(save_tree$tip.label,cluster_ids)) # subtree of the current cluster
+    distmatrix <- cophenetic.phylo(cluster_tree) # distance-matrix; CAUTION: does not work for big trees (>10,000)
+    distmatrix_red <- distmatrix[cluster_keeper,setdiff(cluster_ids,cluster_keeper)] # relevant distances
+    cluster_removed_more_keeper <- c()
+    if (length(setdiff(cluster_ids,cluster_keeper)) == 1){ # only one removed tip in cluster
+      if (length(unique(distmatrix_red)) > 1){ # remove "unnecessary" keeper from cluster
+        clusters[clusters$samples %in% names(distmatrix_red[distmatrix_red != min(distmatrix_red)]),]$cluster <- NA
+        #print("Error: Something went wrong in computing the clusters.")
       }
     } else {
     if (any(apply(distmatrix_red, 2, function(x) sum(x == min(x)) > 1))){
-      clade_removed_more_keeper <- names(which(apply(distmatrix_red, 2, function(x) sum(x == min(x)) > 1)))
+      cluster_removed_more_keeper <- names(which(apply(distmatrix_red, 2, function(x) sum(x == min(x)) > 1)))
       distmatrix_red_real <- distmatrix_red
       distmatrix_red <- distmatrix_red[,-which(apply(distmatrix_red, 2, function(x) sum(x == min(x)) > 1))]
     }
@@ -429,62 +453,62 @@ for (i in unique(clades[!is.na(clades$clade),]$clade)){
     } else { # gives in which row(s) the min distance is
       min_dist <- apply(distmatrix_red, 2, FUN = function(x) which(x == min(x)))
     }
-    for (j in clade_keeper){
+    for (j in cluster_keeper){
       # removed tips with shortest distance to this keeper
-      clade_removed <- names(which(min_dist == which(rownames(distmatrix_red) == j)))
-      if (length(clade_removed) == 0){ # keeper is currently alone in clade
-        clades[clades$samples == j,]$clade <- "assign"
+      cluster_removed <- names(which(min_dist == which(rownames(distmatrix_red) == j)))
+      if (length(cluster_removed) == 0){ # keeper is currently alone in cluster
+        clusters[clusters$samples == j,]$cluster <- "assign"
       } else {
-        clades[clades$samples == j,]$clade <- clade_num # assign keeper to new clade
-        clades[clades$samples %in% clade_removed,]$clade <- clade_num # assign removed tips with shortest dist to same clade
-        clade_num <- clade_num +1
+        clusters[clusters$samples == j,]$cluster <- cluster_num # assign keeper to new cluster
+        clusters[clusters$samples %in% cluster_removed,]$cluster <- cluster_num # assign removed tips with shortest dist to same cluster
+        cluster_num <- cluster_num +1
       }
     }
-    if (length(clade_removed_more_keeper) > 0){ # removed tips with more than one keeper in clade
-      for (l1 in clade_removed_more_keeper){
+    if (length(cluster_removed_more_keeper) > 0){ # removed tips with more than one keeper in cluster
+      for (l1 in cluster_removed_more_keeper){
         l2 <- which(colnames(distmatrix_red_real) == l1)
         more_keeper <- names(which(distmatrix_red_real[,l2] == min(distmatrix_red_real[,l2]))) # closest keepers for removed one
-        more_keeper_clades <- unique(clades[clades$samples %in% more_keeper,]$clade)
-        if ("assign" %in% more_keeper_clades){
-          if (length(more_keeper_clades) == 1){ # no clade assigned to keepers -> start new clade
-            clades[clades$samples == l1,]$clade <- clade_num
-            clades[clades$samples %in% more_keeper,]$clade <- clade_num
-            clade_num <- clade_num +1
-          } else { # assign clade to unassigned keepers and removed tip
-            clades[clades$samples == l1,]$clade <- more_keeper_clades[more_keeper_clades != "assign"][1]
-            clades[clades$samples %in% more_keeper & clades$clade == "assign",]$clade <- more_keeper_clades[more_keeper_clades != "assign"][1]
+        more_keeper_clusters <- unique(clusters[clusters$samples %in% more_keeper,]$cluster)
+        if ("assign" %in% more_keeper_clusters){
+          if (length(more_keeper_clusters) == 1){ # no cluster assigned to keepers -> start new cluster
+            clusters[clusters$samples == l1,]$cluster <- cluster_num
+            clusters[clusters$samples %in% more_keeper,]$cluster <- cluster_num
+            cluster_num <- cluster_num +1
+          } else { # assign cluster to unassigned keepers and removed tip
+            clusters[clusters$samples == l1,]$cluster <- more_keeper_clusters[more_keeper_clusters != "assign"][1]
+            clusters[clusters$samples %in% more_keeper & clusters$cluster == "assign",]$cluster <- more_keeper_clusters[more_keeper_clusters != "assign"][1]
           }
-          more_keeper_clades <- unique(clades[clades$samples %in% more_keeper,]$clade)
+          more_keeper_clusters <- unique(clusters[clusters$samples %in% more_keeper,]$cluster)
         }
-        if (length(more_keeper_clades) == 1){ # keepers are already in the same clade
-          clades[clades$samples == l1,]$clade <- more_keeper_clades[1] # assign removed tip to clade
-        } else { # join clades and add removed tip
-          clades[clades$clade %in% more_keeper_clades[-1],]$clade <- more_keeper_clades[1]
-          clades[clades$samples == l1,]$clade <- more_keeper_clades[1]
+        if (length(more_keeper_clusters) == 1){ # keepers are already in the same cluster
+          clusters[clusters$samples == l1,]$cluster <- more_keeper_clusters[1] # assign removed tip to cluster
+        } else { # join clusters and add removed tip
+          clusters[clusters$cluster %in% more_keeper_clusters[-1],]$cluster <- more_keeper_clusters[1]
+          clusters[clusters$samples == l1,]$cluster <- more_keeper_clusters[1]
         }
       }
     }
-    if (length(which(clades$clade == "assign")) > 0){
-      print("Error: Something went wrong in computing the clades.")
-      clades[clades$clade %in% c("assign"),]$clade <- NA # assign keeper to no clade (should not happen)
+    if (length(which(clusters$cluster == "assign")) > 0){
+      print("Error: Something went wrong in computing the clusters.")
+      clusters[clusters$cluster %in% c("assign"),]$cluster <- NA # assign keeper to no cluster (should not happen)
     }
   }}
 }
 
-# "rename" clade numbers to lowest possible
-clade_names <- sort(as.numeric(unique(clades[!is.na(clades$clade),]$clade)))
-clades$clade <- match(clades$clade, clade_names)
+# "rename" cluster numbers to lowest possible
+cluster_names <- sort(as.numeric(unique(clusters[!is.na(clusters$cluster),]$cluster)))
+clusters$cluster <- match(clusters$cluster, cluster_names)
 
-# check if every removed sample is assigned to a clade
-if (length(setdiff(removed_labels, clades[!is.na(clades$clade),]$samples)) > 0){
-  print("Warning: Something went wrong with the clade-ouput! Not all removed samples are assigned to a clade.")
+# check if every removed sample is assigned to a cluster
+if (length(setdiff(removed_labels, clusters[!is.na(clusters$cluster),]$samples)) > 0){
+  print("Warning: Something went wrong with the cluster-ouput! Not all removed samples are assigned to a cluster.")
 }
-# check if in every clade is exactly one keeper
-clade_keeper_all <- setdiff(clades[!is.na(clades$clade),]$samples, removed_labels)
-if (length(clade_keeper_all) < length(unique(subset(clades$clade, clades$samples %in% clade_keeper_all)))){
-  print("Warning: Maybe something went wrong with the clade-ouput. There are less keepers in the clades than different clades.")
-} else if (length(clade_keeper_all) > length(unique(subset(clades$clade, clades$samples %in% clade_keeper_all)))){
-  print("Warning: Maybe something went wrong with the clade-ouput. There are more keepers in the clades than different clades.")
+# check if in every cluster is exactly one keeper
+cluster_keeper_all <- setdiff(clusters[!is.na(clusters$cluster),]$samples, removed_labels)
+if (length(cluster_keeper_all) < length(unique(subset(clusters$cluster, clusters$samples %in% cluster_keeper_all)))){
+  print("Warning: Maybe something went wrong with the cluster-ouput. There are less keepers in the clusters than different clusters.")
+} else if (length(cluster_keeper_all) > length(unique(subset(clusters$cluster, clusters$samples %in% cluster_keeper_all)))){
+  print("Warning: Maybe something went wrong with the cluster-ouput. There are more keepers in the clusters than different clusters.")
 }
 }
 
@@ -527,10 +551,10 @@ invisible(dev.off()) # close the plotting device
 #### OUTPUT #######################################################################################################
 ###################################################################################################################
 
-# oversampled clades
-if (!no_clade) { 
+# oversampled clusters
+if (!no_cluster) { 
 if(length(removed_labels)>0){
-  write.csv(clades, file = paste(basepath, "/phylothinoutput/clades_", tree_name, ".csv" ,sep = "" ))
+  write.csv(clusters, file = paste(basepath, "/phylothinoutput/clusters_", tree_name, ".csv" ,sep = "" ))
 }
 }
 
@@ -571,7 +595,7 @@ pdf(paste(basepath, "/phylothinoutput/treecomparison_", tree_name, ".pdf", sep =
   par(mfrow = c(1,2))
   plot(input_tree, show.tip.label = F, main = warning, sub = tree_name)
   tiplabels(tip = removed_ones, col = "red" , pch = 4)
-  #tiplabels(tip = which(is.element(save_tree$tip.label, clades[!is.na(clades$clade),]$samples)), col = "blue" , pch = 1) # tips which belong to a oversampled clade
+  #tiplabels(tip = which(is.element(save_tree$tip.label, clusters[!is.na(clusters$cluster),]$samples)), col = "blue" , pch = 1) # tips which belong to a oversampled cluster
   plot(dropped_tree, show.tip.label = F, main = text1, sub = text2)
 invisible(dev.off())
 

@@ -3,11 +3,13 @@
 # by Hannah Götsch
 
 # Compile this code using:
-# Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list) (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)
+# Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list) (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)
 
 #### TUNING PARAMETER #############################################################################################
+alpha_1 <- 0.1 
+alpha_2 <- 0.25*alpha_1 
 
-# proportion on how often a sample has to be in a oversampling-clade such that it gets classified as oversampled
+# proportion on how often a sample has to be in a oversampling-cluster such that it gets classified as oversampled
 alpha_5 <- 0.9 
 
 #### INPUT ########################################################################################################
@@ -20,10 +22,11 @@ args <- commandArgs(trailingOnly=TRUE)
 if (length(args) > 9) {
   stop("Wrong command line input\n
        Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list)
-       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
+       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)\"", call.=FALSE)
 }
 runs <- NULL
 subsamplesize <- NULL
+num_cores <- 1 # no parallelization (only one core used)
 basepath <- NULL
 input_tree_file <- NULL
 prio <- F
@@ -36,6 +39,14 @@ while (i <= length(args)) {
     i <- i + 2
   } else if (args[i] == "-s") {
     subsamplesize <- as.numeric(args[i + 1]) # size of subsamples
+    i <- i + 2
+  } else if (args[i] == "-t") {
+    num_cores <- floor(as.numeric(args[i + 1])) # number of cores for parallelization of subsampling
+    if (num_cores > 1){
+      library(parallel)
+    } else {
+      num_cores <- 1
+    }
     i <- i + 2
   } else if (args[i] == "no_PATHd8") {
     pathd8 <- F # skip PATHd8
@@ -78,12 +89,12 @@ while (i <= length(args)) {
 if (is.null(basepath)) {
   stop("You need to specify the path to the data folder\n
        Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list)
-       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
+       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)\"", call.=FALSE)
 } 
 if (is.null(input_tree_file)) {
   stop("Missing argument input_tree\n
        Usage is \"Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list)
-       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites)\"", call.=FALSE)
+       (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)\"", call.=FALSE)
 } 
 
 # load (ultrametric) tree:
@@ -117,32 +128,39 @@ if (prio) { # priority list given
   if (mutation_sensitive){ # mutation sensitive thinning
     Sys.setenv(number_variable_sites = num_snp)
     if (!pathd8){ # skip PATHd8 since requested by input
-      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 no_clade -m $number_variable_sites')
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 no_cluster -m $number_variable_sites')
     } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
-      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_clade -m $number_variable_sites')
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_cluster -m $number_variable_sites')
     }
   } else {
     if (!pathd8){
-      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 no_clade')
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_PATHd8 no_cluster')
     } else{
-      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_clade')
+      system('Rscript $phylothin $path_to_folder $input_tree $priority_list_file2 no_cluster')
     }
   }
 } else {
   if (mutation_sensitive){ # mutation sensitive thinning
     Sys.setenv(number_variable_sites = num_snp)
     if (!pathd8){ # skip PATHd8 since requested by input
-      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade -m $number_variable_sites')
+      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_cluster -m $number_variable_sites')
     } else{ # make ultrametric tree with PATHd8 (Britton et al 2007)
-      system('Rscript $phylothin $path_to_folder $input_tree no_clade -m $number_variable_sites')
+      system('Rscript $phylothin $path_to_folder $input_tree no_cluster -m $number_variable_sites')
     }
   } else {
     if (!pathd8){
-      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_clade')
+      system('Rscript $phylothin $path_to_folder $input_tree no_PATHd8 no_cluster')
     } else{
-      system('Rscript $phylothin $path_to_folder $input_tree no_clade')
+      system('Rscript $phylothin $path_to_folder $input_tree no_cluster')
     }
   }
+}
+
+# save full ultrametric tree:
+if (pathd8){
+  um_tree_full <- read.tree(paste(basepath, "/um_", input_tree_file, sep = ""))
+} else{
+  um_tree_full <- input_tree
 }
 
 # load reduced (ultrametric) tree:
@@ -185,21 +203,54 @@ if (!pathd8){ # skip PATHd8 since requested by input
   if(class(um_tree)=="multiPhylo"){um_tree <- um_tree$`d8tree:`}
 }
 
+# smallest clusters-size that can be reliably detected by the subsampling:
+find_c <- function(n, ns, k, alpha_5) {
+  low_bound <- 1
+  up_bound <- n
+  while (low_bound < up_bound) {
+    c <- floor((low_bound + up_bound) / 2)
+    # cum. prob, drawing k-1 or more successes
+    p <- phyper(k - 2, c - 1, n - c, ns - 1, lower.tail = FALSE)
+    if (p > alpha_5) {
+      up_bound <- c
+    } else {
+      low_bound <- c + 1
+    }
+  }
+  low_bound
+}
+
+# function for computing smallest cluster-size of highly related samples of distance zero, which can be detected by mutation-sensitive-thinning:
+if (mutation_sensitive){
+  f_kns <- function(kns, ns) prod(1/(1+2*theta/(((ns-kns+2):ns)*((ns-kns+1):(ns-1)))))
+} 
+
 # compute default setting
   # compute default subsamplesize (on by PhyloThin reduced tree)
-  if (is.null(subsamplesize)) {
-    external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
-    external_br_length <- um_tree$edge.length[external_br_index] # length of external branches
-    if(length(which(external_br_length == 0))>0){
-      external_br_length <- external_br_length[-which(external_br_length == 0)] # external branch length > 0
+  if (is.null(subsamplesize)) { 
+    if (!mutation_sensitive) { 
+      external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
+      external_br_length <- um_tree$edge.length[external_br_index] # length of external branches
+      if(length(which(external_br_length == 0))>0){
+        external_br_length <- external_br_length[-which(external_br_length == 0)] # external branch length > 0
+      }
+      subsamplesize <- round(sqrt(coalescent.intervals(um_tree)$total.depth/min(external_br_length)))
+    } else { # subsamplesize for mutation sensitive thinning
+      scalingfactor <- read.table(paste0(basepath, "/phylothinoutput/check/scalingfactor_", tree_name, ".txt"))[[1]]
+      theta <- num_snp/sum(um_tree_full$edge.length/scalingfactor) # mutation rate
+      # smallest cluster-size of highly related samples of distance zero, which can be detected by mutation-sensitive-thinning:
+      kns <- sapply(3:num_sample_red, function(ns) (min(which(sapply(2:ns, function(kns){f_kns(kns,ns)}) < alpha_2))+1)) # k as a fct of ns
+      # smallest clusters-size that can be reliably detected by the subsampling:
+      c_2ns <- mapply(function(ns,kns) (find_c(num_sample_red, ns, kns, alpha_5)), 3:num_sample_red, rep(2,num_sample_red-2)) # ck as a fct of ns (3:n) and k=2
+      ns_index <- max(which(c_2ns >= kns))
+      subsamplesize <- ns_index+2 # subsamplesize ns s.t. c==k (or largest ns s.t. c>k)
     }
-    subsamplesize <- round(sqrt(coalescent.intervals(um_tree)$total.depth/min(external_br_length)))
     # sanity check:
-    if (subsamplesize > num_sample_full){
+    if (subsamplesize > num_sample_red){
       stop(paste("The default subsample size", subsamplesize, "is larger than the (reduced) sample size", 
                  num_sample_red, ". Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
                 or define your own subsample size: 'Rscript phylothin_subsampling.R path_to_folder input_tree 
-                (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites)'."))
+                (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites) (-t number_cores)'."))
     }
   }
   # compute default number of runs
@@ -213,7 +264,7 @@ if (subsamplesize > num_sample_red){
 } else if (subsamplesize < 3){
   stop(paste("The subsample size", subsamplesize, "is too small to use PhyloThin. Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
                 or define another subsample size: 'Rscript phylothin_subsampling.R path_to_folder input_tree 
-                (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites)'."))
+                (-r number_of_subsamples) -s subsample_size (no_PATHd8) (-m number_variable_sites) (-t number_cores)'."))
 }
 print(paste("The following parameter setting is used for subsampling:", 
             runs, "drawings with a subsample size of", subsamplesize, "."))
@@ -225,6 +276,15 @@ write.table(def_parameters,
 if (!file.exists(file.path(basepath, "phylothinoutput/subsampling"))){ # folder for sub-sampling output
   dir.create(file.path(basepath, "phylothinoutput/subsampling"))
 }
+
+# smallest clusters-size that can be reliably detected by the subsampling (and mutation-sensitive-thinning):
+if (mutation_sensitive){
+  kns <- min(which(sapply(2:num_sample_red, function(x) f_kns(x, subsamplesize)) < alpha_2))+1
+} else {
+  kns <- 2
+}
+print(paste("With this parameter setting, clusters containing more than", find_c(num_sample_red, subsamplesize, kns, alpha_5), 
+            "samples are reliably detected. Smaller clusters may also be detected."))
 
 #### SUBSAMPLING ##################################################################################################
 
@@ -240,7 +300,7 @@ if (prio) { # copy priority list in right folder
   system('cp $prio_list_path1 $prio_list_path2')
 }
 
-lapply(1:runs, function(i) { # subsampling & phylothin; TODO: parallelization
+subsampling <- function(i) { # subsampling & phylothin: define the function
   set.seed(i)
   nosample_tips <- um_tree$tip.label[sample(1:num_sample_red, num_sample_red-subsamplesize)]
   sample_tree <- drop.tip(um_tree, nosample_tips)
@@ -277,7 +337,14 @@ lapply(1:runs, function(i) { # subsampling & phylothin; TODO: parallelization
   system('rm $remove_file')
   Sys.setenv(remove_file = paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/check/*", sep = ""))
   system('rm $remove_file')
-})
+}
+
+# subsampling & phylothin
+if (num_cores == 1){
+  lapply(1:runs, subsampling) 
+} else {
+  mclapply(1:runs, subsampling, mc.cores = num_cores) # parallelization
+}
 
 if (prio) { # remove copy priority list
   system('rm $prio_list_path2')
@@ -300,13 +367,13 @@ for (i in 1:runs) {
     subsample_table[subsample_table$sample == subsample_sample,]$num_sampled <- 1 + 
       subsample_table[subsample_table$sample == subsample_sample,]$num_sampled
   }
-  if (file.exists(paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/clades_", subtree_name, ".csv", sep = "" ))) {
-    clades_file <- read.csv(paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/clades_", subtree_name, ".csv", sep = "" ),
+  if (file.exists(paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/clusters_", subtree_name, ".csv", sep = "" ))) {
+    clusters_file <- read.csv(paste(basepath, "/phylothinoutput/subsampling/phylothinoutput/clusters_", subtree_name, ".csv", sep = "" ),
                             header=T)
-    clades_tips <- clades_file[!is.na(clades_file$clade),]$samples
-    for (clades_sample in clades_tips) {
-     subsample_table[subsample_table$sample == clades_sample,]$num_in_cluster <- 1 + 
-        subsample_table[subsample_table$sample == clades_sample,]$num_in_cluster
+    clusters_tips <- clusters_file[!is.na(clusters_file$cluster),]$samples
+    for (clusters_sample in clusters_tips) {
+     subsample_table[subsample_table$sample == clusters_sample,]$num_in_cluster <- 1 + 
+        subsample_table[subsample_table$sample == clusters_sample,]$num_in_cluster
     }
   }
 }
