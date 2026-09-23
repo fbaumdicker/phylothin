@@ -231,22 +231,21 @@ if (mutation_sensitive) {
   # which will be the first test that would remove distance zero:
   f_kn <- function(k) prod(1/(1+2*theta/(((num_start-k+2):num_start)*((num_start-k+1):(num_start-1)))))
   kn <- min(which(sapply(2:num_start, f_kn) < alpha_2))+1
-  print(paste("The smallest cluster of highly related samples of distance zero, which can be detected, contains at least",
-              kn, "samples."))
+  print(paste("The smallest cluster of highly related samples of distance zero, which are reliably detected, contains at least",
+              kn, "samples. Smaller clusters may also be detected."))
   if (kn/num_start > 0.1 & kn > 2){ # warning for too low tree-resolution
-    print("Warning: This minimal cluster-size is quite large. A lot of sampling bias may remain undetected. 
-          Consider to include more SNPs in your tree-inference (soft core genome) and/or 
-          use the subsampling option in PhyloThin.")
+    print(paste("Warning: This minimal cluster-size is quite large. A lot of sampling bias may remain undetected.", 
+          "Consider to include more SNPs in your tree-inference (soft core genome) and/or use the subsampling option in PhyloThin."))
   }
 } else { # minimal mutation rate recommended for classic PhyloThin
   # distance zero would be removed by mut.-sens.-thin.: f_kn < alpha_2 for kn = 2
   # 1/(1+2*theta/(num_start*(num_start-1))) < alpha_2
   theta <- (1/alpha_2-1)*(num_start*(num_start-1))/2 # recommended mutation rate
   num_snp <- theta*sum(um_tree$edge.length) # recommended number of SNPs
-  print(paste("The infinite-mutation-rate-limit of PhyloThin is a perfect approximation if your tree-inference 
-              is based on at least", num_snp, "SNPs. If this is by far not the case, to get more precise results consider to 
-              include more SNPs in your tree-inference (soft core genome) and/or use the mutation-sensitive-thinning 
-              option in PhyloThin (provide the number of SNPs). Otherwise sampling bias may be overestimated."))
+  print(paste("The infinite-mutation-rate-limit of PhyloThin is a perfect approximation if your tree-inference",
+              "is based on at least", num_snp, "SNPs. If this is by far not the case, to get more precise results consider to",
+              "include more SNPs in your tree-inference (soft core genome) and/or use the mutation-sensitive-thinning",
+              "option in PhyloThin (provide the number of SNPs). Otherwise sampling bias may be overestimated."))
 }
 
 ###### CHECK ######################################################################################################

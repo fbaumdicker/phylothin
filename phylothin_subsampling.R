@@ -6,6 +6,8 @@
 # Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list) (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)
 
 #### TUNING PARAMETER #############################################################################################
+alpha_1 <- 0.1 
+alpha_2 <- 0.25*alpha_1 
 
 # proportion on how often a sample has to be in a oversampling-cluster such that it gets classified as oversampled
 alpha_5 <- 0.9 
@@ -154,6 +156,13 @@ if (prio) { # priority list given
   }
 }
 
+# save full ultrametric tree:
+if (pathd8){
+  um_tree_full <- read.tree(paste(basepath, "/um_", input_tree_file, sep = ""))
+} else{
+  um_tree_full <- input_tree
+}
+
 # load reduced (ultrametric) tree:
 input_tree <- read.tree(paste(basepath, "/phylothinoutput/reduced_tree_", 
                               tree_name, ".nwk", sep = ""))
@@ -194,17 +203,50 @@ if (!pathd8){ # skip PATHd8 since requested by input
   if(class(um_tree)=="multiPhylo"){um_tree <- um_tree$`d8tree:`}
 }
 
+# smallest clusters-size that can be reliably detected by the subsampling:
+find_c <- function(n, ns, k, alpha_5) {
+  low_bound <- 1
+  up_bound <- n
+  while (low_bound < up_bound) {
+    c <- floor((low_bound + up_bound) / 2)
+    # cum. prob, drawing k-1 or more successes
+    p <- phyper(k - 2, c - 1, n - c, ns - 1, lower.tail = FALSE)
+    if (p > alpha_5) {
+      up_bound <- c
+    } else {
+      low_bound <- c + 1
+    }
+  }
+  low_bound
+}
+
+# function for computing smallest cluster-size of highly related samples of distance zero, which can be detected by mutation-sensitive-thinning:
+if (mutation_sensitive){
+  f_kns <- function(kns, ns) prod(1/(1+2*theta/(((ns-kns+2):ns)*((ns-kns+1):(ns-1)))))
+} 
+
 # compute default setting
   # compute default subsamplesize (on by PhyloThin reduced tree)
-  if (is.null(subsamplesize)) { # todo subsamplesize for mutation sensitive thinning
-    external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
-    external_br_length <- um_tree$edge.length[external_br_index] # length of external branches
-    if(length(which(external_br_length == 0))>0){
-      external_br_length <- external_br_length[-which(external_br_length == 0)] # external branch length > 0
+  if (is.null(subsamplesize)) { 
+    if (!mutation_sensitive) { 
+      external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
+      external_br_length <- um_tree$edge.length[external_br_index] # length of external branches
+      if(length(which(external_br_length == 0))>0){
+        external_br_length <- external_br_length[-which(external_br_length == 0)] # external branch length > 0
+      }
+      subsamplesize <- round(sqrt(coalescent.intervals(um_tree)$total.depth/min(external_br_length)))
+    } else { # subsamplesize for mutation sensitive thinning
+      scalingfactor <- read.table(paste0(basepath, "/phylothinoutput/check/scalingfactor_", tree_name, ".txt"))[[1]]
+      theta <- num_snp/sum(um_tree_full$edge.length/scalingfactor) # mutation rate
+      # smallest cluster-size of highly related samples of distance zero, which can be detected by mutation-sensitive-thinning:
+      kns <- sapply(3:num_sample_red, function(ns) (min(which(sapply(2:ns, function(kns){f_kns(kns,ns)}) < alpha_2))+1)) # k as a fct of ns
+      # smallest clusters-size that can be reliably detected by the subsampling:
+      c_2ns <- mapply(function(ns,kns) (find_c(num_sample_red, ns, kns, alpha_5)), 3:num_sample_red, rep(2,num_sample_red-2)) # ck as a fct of ns (3:n) and k=2
+      ns_index <- max(which(c_2ns >= kns))
+      subsamplesize <- ns_index+2 # subsamplesize ns s.t. c==k (or largest ns s.t. c>k)
     }
-    subsamplesize <- round(sqrt(coalescent.intervals(um_tree)$total.depth/min(external_br_length)))
     # sanity check:
-    if (subsamplesize > num_sample_full){
+    if (subsamplesize > num_sample_red){
       stop(paste("The default subsample size", subsamplesize, "is larger than the (reduced) sample size", 
                  num_sample_red, ". Skip the subsampling procedure of PhyloThin (maybe not needed for your tree) 
                 or define your own subsample size: 'Rscript phylothin_subsampling.R path_to_folder input_tree 
@@ -235,7 +277,14 @@ if (!file.exists(file.path(basepath, "phylothinoutput/subsampling"))){ # folder 
   dir.create(file.path(basepath, "phylothinoutput/subsampling"))
 }
 
-# todo compute and output c
+# smallest clusters-size that can be reliably detected by the subsampling (and mutation-sensitive-thinning):
+if (mutation_sensitive){
+  kns <- min(which(sapply(2:num_sample_red, function(x) f_kns(x, subsamplesize)) < alpha_2))+1
+} else {
+  kns <- 2
+}
+print(paste("With this parameter setting, clusters containing more than", find_c(num_sample_red, subsamplesize, kns, alpha_5), 
+            "samples are reliably detected. Smaller clusters may also be detected."))
 
 #### SUBSAMPLING ##################################################################################################
 
@@ -292,9 +341,9 @@ subsampling <- function(i) { # subsampling & phylothin: define the function
 
 # subsampling & phylothin
 if (num_cores == 1){
-  lapply(1:runs, subsampling(i)) 
+  lapply(1:runs, subsampling) 
 } else {
-  mclapply(1:runs, subsampling(i), mc.cores = num_cores) # parallelization
+  mclapply(1:runs, subsampling, mc.cores = num_cores) # parallelization
 }
 
 if (prio) { # remove copy priority list
