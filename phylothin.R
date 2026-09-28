@@ -391,7 +391,7 @@ while(removed && num_start - num_removed > 2 && local_length > 0){ # ensure to h
     if (myprob[1] < alpha_1) { # last coal interval too small
       print("Test on last coalescent interval has been successful.")
       cutting_step() # cutting
-    } else { # cumsum probably too small
+    } else if (local_length > 1) { # cumsum probably too small
       testing_sum <- T # control
       j <- 1
       geom_conv <- dgeom(0:geom_max,geom_p[j])
