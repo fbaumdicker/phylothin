@@ -412,6 +412,8 @@ while(removed && num_start - num_removed > 2 && local_length > 0){ # ensure to h
           removed <- F # desired distr. reached; no further tip should be removed, stop the while loop
         }
       }
+    } else {
+      removed <- F
     }
   }
 }
