@@ -30,13 +30,10 @@ q()
 
 ### References
 
-1. R Core Team 2021. R: A language and environment for statistical computing. R Foundation for
-  Statistical Computing, Vienna, Austria. https://www.R-project.org/
-2. Paradis E. and Schliep K. 2019. ape 5.0: An Environment for Modern Phylogenetics and Evolutionary
-Analyses in R. Bioinformatics 35: 526-528.
+1. R Core Team 2021. R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. https://www.R-project.org/
+2. Paradis E. and Schliep K. 2019. ape 5.0: An Environment for Modern Phylogenetics and Evolutionary Analyses in R. Bioinformatics 35: 526-528.
 3. Schliep K.P. 2011. phangorn: Phylogenetic Analysis in R. Bioinformatics 27(4): 592-593.
-4. Hadley Wickham, Romain François, Lionel Henry, Kirill Müller and Davis Vaughan 2023. dplyr: A
-  Grammar of Data Manipulation. https://CRAN.R-project.org/package=dplyr
+4. Hadley Wickham, Romain François, Lionel Henry, Kirill Müller and Davis Vaughan 2023. dplyr: A Grammar of Data Manipulation. https://CRAN.R-project.org/package=dplyr
 
 ## Step 2: Clone GitHub-Repository
 
@@ -61,13 +58,12 @@ If you prefer your own tool (or the tree is already ultrametric), *PATHd8* is no
 
 ### Reference
 
-1. Tom Britton, Cajsa Lisa Anderson, David Jacquet, Samuel Lundqvist, and Kåre Bremer 2007.
-Estimating Divergence Times in Large Phylogenetic Trees. Systematic Biology 56(5): 741–752.
+1. Tom Britton, Cajsa Lisa Anderson, David Jacquet, Samuel Lundqvist, and Kåre Bremer 2007. Estimating Divergence Times in Large Phylogenetic Trees. Systematic Biology 56(5): 741–752.
 
 ## Step 4: Run *PhyloThin*
 
 ```
-Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_clade)
+Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cluster)
 ```
 
 ### Input
@@ -77,14 +73,14 @@ Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cl
 - *priority_list*: optional csv-file stored in *path_to_folder* and containing the sample ids (same as the tip labels of the input tree) in the first column and their priority in the second column. Preferably, samples with priority *0* are removed, then those without priority *NA*, then those with low priority (high number) until finally those with the highest priority *1* are removed.
 - *no_PATHd8*: If *input_tree* is already ultrametric (you may have used your preferred tool) and *PATHd8* is not installed, you can skip *PATHd8* in *PhyloThin* by adding *"no_PATHd8"* in the command-line input to run *PhyloThin*.\
 !! CAUTION !! Make sure that the given *input_tree* is already ultrametric !! Otherwise *PhyloThin* may give you wrong results.
-- *no_clade*: If no clade-output is prefered (see output clades.csv below) add *"no_clade"* in the command-line input to run *PhyloThin*. This may save some running time of *PhyloThin*. For trees with more than 10,000 tips, the clade-ouput is not possible.
+- *no_cluster*: If no cluster-output is prefered (see output clusters.csv below) add *"no_cluster"* in the command-line input to run *PhyloThin*. This may save some running time of *PhyloThin*. For trees with more than 10,000 tips, the cluster-ouput is not possible.
 
 ### Output
 
 The input tree name is always used as a suffix in all output file names.
 
 Folder *phylothinoutput/*: every output of *PhyloThin* is stored in this folder.
-- *clades.csv*: table with sample ids and the oversampled clade to which they belong. The first column gives the sample id, the second column indicates if the sample is part of a oversampled clade (same number for samples in the same clade, the number itself has no further meaning). *NA* in the clade column means that the sample is not part of an oversampled clade. Therefore, each clade consists of removed samples and one (sometimes more are possible) sample which has been kept by *PhyloThin*. For further analysis it may sometimes also be meaningful to keep all samples and weight them according to how many samples belong to the same oversampled clade. For trees with more than 10,000 tips, this clade-ouput is not possible.
+- *clusters.csv*: table with sample ids and the oversampled cluster to which they belong. The first column gives the sample id, the second column indicates if the sample is part of a oversampled cluster (same number for samples in the same cluster, the number itself has no further meaning). *NA* in the cluster column means that the sample is not part of an oversampled cluster. Therefore, each cluster consists of removed samples and one (sometimes more are possible) sample which has been kept by *PhyloThin*. For further analysis it may sometimes also be meaningful to keep all samples and weight them according to how many samples belong to the same oversampled cluster. For trees with more than 10,000 tips, this cluster-ouput is not possible.
 - *removed_ids.txt*: list of sample ids which should be removed for further analysis.
 - *kept_ids.txt*: list of sample ids which should be kept for further analysis.
 - *reduced_tree.nwk*: the (reduced) phylogenetic tree where biased samples are removed.
@@ -94,6 +90,7 @@ Folder *phylothinoutput/*: every output of *PhyloThin* is stored in this folder.
 Folder *phylothinoutput/check/*: additional visualizations which may help to understand the decisions of *PhyloThin*. See *Supplementary Note 1* in the accompanying manuscript for further details.
 - *treecutting.pdf*
 - *scaling.pdf*
+- *scalingfactor.txt*
 - *um_treecomparison.pdf*: comparison of the full and reduced ultrametric, phylogenetic trees. Removed samples are marked with red crosses in the full ultrametric tree.
 
 ### Large Phylogenetic Trees - Subsampling
@@ -101,25 +98,38 @@ Folder *phylothinoutput/check/*: additional visualizations which may help to und
 For very large sample sizes the mutation rate may not be high enough to allow a reliable inference of the shortest coalescent times in the phylogenetic tree. To prevent issues with *PhyloThin*, we suggest to subsample the strain collection multiple times. By considering the ratio of subsamples where a strain has been identified as oversampled we can then identify oversampling in the complete data set (see the accompanying manuscript for further details). This can be done as follows:
 
 ```
-Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8)
+Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)
 ```
 
-For details on the computations of the default parameter setting, see "Supplementary Note 1: PhyloThin – Implementation" in the accompanying manuscript.
+For details on the computations of the default parameter setting, see "Supplementary Note 1: PhyloThin – Theoretical Derivation and Implementation" in the accompanying manuscript.
+The subsampling routine can be parallelized via *mclapply()* from the *R* package *parallel*, using *number_cores* cores.
 
-### Low mutation rate - Mutation-Sensitive Thinning
+### Low mutation rate - Mutation-Rate-Sensitive Thinning
 
-For low mutation rates, branches of length zero become more and more common (especially in large phylogenetic trees) which may violate the assumptions of *PhyloThin* and may lead to an overestimation of sampling bias. We therefore recommend ensuring that a sufficient number of variable sites were used to infer the phylogenetic tree. If this is not possible, we suggest cross-checking the results obtained with *PhyloThin* using the mutation-sensitive version of *PhyloThin*. In this version, an inferred mutation rate is incorporated into the statistical test.
-*Mutation-Sensitive Thinning* can be performed by providing the additional input *number_variable_sites* (the number of SNP positions used to infer the phylogenetic tree), as follows:
+For low mutation rates, branches of length zero become more and more common (especially in large phylogenetic trees) which may violate the assumptions of *PhyloThin* and may lead to an overestimation of sampling bias. We therefore recommend ensuring that a sufficient number of variable sites were used to infer the phylogenetic tree. If this is not possible, we suggest cross-checking the results obtained with *PhyloThin* using the mutation-rate-sensitive version of *PhyloThin*. In this version, an inferred mutation rate is incorporated into the statistical test.
+*Mutation-Rate-Sensitive Thinning* can be performed by providing the additional input *number_variable_sites* (the number of SNP positions used to infer the phylogenetic tree), as follows:
 
 ```
-Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_clade) -m number_variable_sites
+Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cluster) -m number_variable_sites
 ```
 
-CAUTION: *Mutation-Sensitive Thinning* may underestimate sampling bias if the resolution of the phylogenetic tree is insufficient. To mitigate this effect, *Mutation-Sensitive Thinning* can be combined with *Subsampling* as follows:
+CAUTION: *Mutation-Rate-Sensitive Thinning* may underestimate sampling bias if the resolution of the phylogenetic tree is insufficient. To mitigate this effect, *Mutation-Rate-Sensitive Thinning* can be combined with *Subsampling* as follows:
 
 ```
 Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) -m number_variable_sites
 ```
+
+## Best Practice
+
+- Use *TreeTime* to generate ultrametric trees (assign the same sampling date to all tips to enforce ultrametricity). Although *pathd8* is the default, we recommend installing and using *TreeTime* since is more aligned with the coalescent-assumptions of *PhloThin*. 
+- Enable mutation-rate-sensitive thinning. We recommend running *PhyloThin* with the *Mutation-Rate-Sensitive Thinning* option.
+- Check whether the alignment adequately resolves closely related strains. *PhyloThin* reports a warning when the smallest zero-distance sample cluster that can be reliably detected by *Mutation-Rate-Sensitive Thinning* is too large.
+- Increase tree resolution if necessary. If this warning is reported, consider incorporating more SNPs into the tree inference; for example, by using the soft-core genome.
+- Combine methods when resolution remains insufficient. If adding more SNPs is not possible or does not provide sufficient resolution, use *Subsampling* in addition to *Mutation-Rate-Sensitive Thinning*.
+
+### Reference
+
+1.  Pavel Sagulenko, Vadim Puller, and Richard A Neher 2018. TreeTime: Maximum-likelihood phylodynamic analysis. Virus Evolution, 4(1):vex042.
 
 ## Test - Examples
 
@@ -128,8 +138,17 @@ Rscript phylothin.r ./Example ListeriaMonocytogenes.nwk
 ```
 
 ```
-Rscript phylothin.r ./Example um_ListeriaMonocytogenes.nwk no_PATHd8
+Rscript phylothin.r ./Example treetime_ListeriaMonocytogenes.nwk no_PATHd8
 ```
 
+## Citation
 
-**Date: 12.03.2026**
+If you use *PhyloThin* in your research, please cite the accompanying manuscript:
+
+> Hannah Götsch, and Franz Baumdicker (2026).
+> **Hidden but Expanding Sampling Bias Distorts Prokaryotic Genome Collections.**
+> *bioRxiv*.
+> https://doi.org/DOI
+
+
+**Date: 23.09.2026**
