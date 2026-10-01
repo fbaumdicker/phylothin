@@ -121,7 +121,7 @@ Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsampl
 
 ## Best Practice
 
-- Use *TreeTime* to generate ultrametric trees (assign the same sampling date to all tips to enforce ultrametricity). Although *pathd8* is the default, we recommend installing and using *TreeTime* since is more aligned with the coalescent-assumptions of *PhloThin*. 
+- Use [*TreeTime*](scripts/help_treetime.sh) to generate ultrametric trees (assign the same sampling date to all tips to enforce ultrametricity). Although *pathd8* is the default, we recommend installing and using *TreeTime* since is more aligned with the coalescent-assumptions of *PhloThin*.
 - Enable mutation-rate-sensitive thinning. We recommend running *PhyloThin* with the *Mutation-Rate-Sensitive Thinning* option.
 - Check whether the alignment adequately resolves closely related strains. *PhyloThin* reports a warning when the smallest zero-distance sample cluster that can be reliably detected by *Mutation-Rate-Sensitive Thinning* is too large.
 - Increase tree resolution if necessary. If this warning is reported, consider incorporating more SNPs into the tree inference; for example, by using the soft-core genome.
