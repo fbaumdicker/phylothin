@@ -107,7 +107,7 @@ The subsampling routine can be parallelized via *mclapply()* from the *R* packag
 ### Low mutation rate - Mutation-Rate-Sensitive Thinning
 
 For low mutation rates, branches of length zero become more and more common (especially in large phylogenetic trees) which may violate the assumptions of *PhyloThin* and may lead to an overestimation of sampling bias. We therefore recommend ensuring that a sufficient number of variable sites were used to infer the phylogenetic tree. If this is not possible, we suggest cross-checking the results obtained with *PhyloThin* using the mutation-rate-sensitive version of *PhyloThin*. In this version, an inferred mutation rate is incorporated into the statistical test.
-*Mutation-Rate-Sensitive Thinning* can be performed by providing the additional input *number_variable_sites* (the number of SNP positions used to infer the phylogenetic tree), as follows:
+*Mutation-Rate-Sensitive Thinning* can be performed by providing the additional input [*number_variable_sites*](scripts/help_count_variable_sites.sh) (the number of SNP positions used to infer the phylogenetic tree), as follows:
 
 ```
 Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cluster) -m number_variable_sites
@@ -121,7 +121,7 @@ Rscript phylothin_subsampling.r path_to_folder input_tree (-r number_of_subsampl
 
 ## Best Practice
 
-- Use *TreeTime* to generate ultrametric trees (assign the same sampling date to all tips to enforce ultrametricity). Although *pathd8* is the default, we recommend installing and using *TreeTime* since is more aligned with the coalescent-assumptions of *PhloThin*. 
+- Use [*TreeTime*](scripts/help_treetime.sh) to generate ultrametric trees (assign the same sampling date to all tips to enforce ultrametricity). Although *pathd8* is the default, we recommend installing and using *TreeTime* since is more aligned with the coalescent-assumptions of *PhloThin*.
 - Enable mutation-rate-sensitive thinning. We recommend running *PhyloThin* with the *Mutation-Rate-Sensitive Thinning* option.
 - Check whether the alignment adequately resolves closely related strains. *PhyloThin* reports a warning when the smallest zero-distance sample cluster that can be reliably detected by *Mutation-Rate-Sensitive Thinning* is too large.
 - Increase tree resolution if necessary. If this warning is reported, consider incorporating more SNPs into the tree inference; for example, by using the soft-core genome.
