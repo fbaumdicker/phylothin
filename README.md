@@ -107,7 +107,7 @@ The subsampling routine can be parallelized via *mclapply()* from the *R* packag
 ### Low mutation rate - Mutation-Rate-Sensitive Thinning
 
 For low mutation rates, branches of length zero become more and more common (especially in large phylogenetic trees) which may violate the assumptions of *PhyloThin* and may lead to an overestimation of sampling bias. We therefore recommend ensuring that a sufficient number of variable sites were used to infer the phylogenetic tree. If this is not possible, we suggest cross-checking the results obtained with *PhyloThin* using the mutation-rate-sensitive version of *PhyloThin*. In this version, an inferred mutation rate is incorporated into the statistical test.
-*Mutation-Rate-Sensitive Thinning* can be performed by providing the additional input *number_variable_sites* (the number of SNP positions used to infer the phylogenetic tree), as follows:
+*Mutation-Rate-Sensitive Thinning* can be performed by providing the additional input [*number_variable_sites*](scripts/help_count_variable_sites.sh) (the number of SNP positions used to infer the phylogenetic tree), as follows:
 
 ```
 Rscript phylothin.r path_to_folder input_tree (priority_list) (no_PATHd8) (no_cluster) -m number_variable_sites
