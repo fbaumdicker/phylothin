@@ -229,6 +229,9 @@ if (mutation_sensitive){
   # compute default subsamplesize (on by PhyloThin reduced tree)
   if (is.null(subsamplesize)) { 
     if (!mutation_sensitive) { 
+      if (is.binary(um_tree) == F){ # test if the tree is binary: needed for coalescent.intervals()
+        um_tree <- multi2di(um_tree) # transform tree into binary by adding branches of length zero
+      }
       external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
       external_br_length <- um_tree$edge.length[external_br_index] # length of external branches
       if(length(which(external_br_length == 0))>0){
