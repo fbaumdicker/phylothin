@@ -1,6 +1,6 @@
 ## subsampling-PhyloThin: R-script for subsampling large phylogenetic trees and applying PhyloThin
 
-# by Hannah Götsch
+# Copyright (C) 2026 Hannah Götsch and Franz Baumdicker
 
 # Compile this code using:
 # Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list) (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)
