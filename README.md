@@ -141,6 +141,16 @@ Rscript phylothin.r ./Example ListeriaMonocytogenes.nwk
 Rscript phylothin.r ./Example treetime_ListeriaMonocytogenes.nwk no_PATHd8
 ```
 
+## License
+
+*PhyloThin* is licensed under the GNU General Public License version 3 or later (`GPL-3.0-or-later`).
+
+You may use, modify, and redistribute this software under the conditions of that license. Modified versions that are distributed must remain available under compatible GPL terms.
+
+See [LICENSE](LICENSE) for the complete license text.
+
+Copyright © 2026 Hannah Götsch and Franz Baumdicker.
+
 ## Citation
 
 If you use *PhyloThin* in your research, please cite the accompanying manuscript:
