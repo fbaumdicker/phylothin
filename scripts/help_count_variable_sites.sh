@@ -1,7 +1,7 @@
 #!/bin/bash
 # bash commands to count variable sites in a panX SNP alignment.
 # bash help_count_variable_sites.sh input_aln
-# by Hannah Goetsch
+# Copyright (C) 2026 Hannah Goetsch
 
 input_aln="$1"
 
