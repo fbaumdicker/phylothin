@@ -1,7 +1,7 @@
 #!/bin/bash
 # bash commands to make phylogenetic trees ultrametric with treetime
 # bash help_treetime.sh input_tree
-# by Hannah Goetsch
+# Copyright (C) 2026 Hannah Goetsch
 
 
 # check dependency
