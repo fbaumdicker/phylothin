@@ -1,6 +1,6 @@
 ## subsampling-PhyloThin: R-script for subsampling large phylogenetic trees and applying PhyloThin
 
-# by Hannah Götsch
+# Copyright (C) 2026 Hannah Götsch and Franz Baumdicker
 
 # Compile this code using:
 # Rscript phylothin_subsampling.R path_to_folder input_tree (priority_list) (-r number_of_subsamples) (-s subsample_size) (no_PATHd8) (-m number_variable_sites) (-t number_cores)
@@ -229,6 +229,9 @@ if (mutation_sensitive){
   # compute default subsamplesize (on by PhyloThin reduced tree)
   if (is.null(subsamplesize)) { 
     if (!mutation_sensitive) { 
+      if (is.binary(um_tree) == F){ # test if the tree is binary: needed for coalescent.intervals()
+        um_tree <- multi2di(um_tree) # transform tree into binary by adding branches of length zero
+      }
       external_br_index <- which(um_tree$edge[,2] <= num_sample_red) # find external branches
       external_br_length <- um_tree$edge.length[external_br_index] # length of external branches
       if(length(which(external_br_length == 0))>0){
