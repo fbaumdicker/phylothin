@@ -1,4 +1,4 @@
-<p align="right"> <img src="phylothin.jpg" width="200"> </p>
+<p align="right"> <img src="/doc/phylothin_logo.jpg" width="200"> </p>
 
 # *PhyloThin* 
 
