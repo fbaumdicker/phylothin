@@ -1,10 +1,21 @@
-<p align="right"> <img src="phylothin.jpg" width="200"> </p>
+<p align="right"> <img src="/doc/phylothin_logo.jpg" width="200"> </p>
 
 # *PhyloThin* 
 
 This github repository provides the software *PhyloThin*.
 
 With *PhyloThin*, we present a fully automated statistical tool that can detect and correct for sampling bias in prokaryotic populations. Removing the strong sampling bias of bacteria allows to identify the effective amount of information and prevents misleading biased conclusions in various analysis, such as the estimation of the pangenome size and gene frequencies.
+
+### Citation
+
+If you use *PhyloThin* in your research, please cite the accompanying manuscript:
+
+> Hannah Götsch, and Franz Baumdicker (2026).
+> **Hidden but Expanding Sampling Bias Distorts Prokaryotic Genome Collections.**
+> *bioRxiv*.
+> https://doi.org/DOI
+
+We presented a [poster](https://github.com/fbaumdicker/phylothin/blob/main/doc/poster.pdf) at the conferences LEGEND2025 and ECCB2026 introducing *PhyloThin* and showcasing its applications. Explore the paper and poster to learn more about the method and its use cases.
 
 ## Step 1: Install R
 
@@ -150,15 +161,6 @@ You may use, modify, and redistribute this software under the conditions of that
 See [LICENSE](LICENSE) for the complete license text.
 
 Copyright © 2026 Hannah Götsch and Franz Baumdicker.
-
-## Citation
-
-If you use *PhyloThin* in your research, please cite the accompanying manuscript:
-
-> Hannah Götsch, and Franz Baumdicker (2026).
-> **Hidden but Expanding Sampling Bias Distorts Prokaryotic Genome Collections.**
-> *bioRxiv*.
-> https://doi.org/DOI
 
 
 **Date: 23.09.2026**
