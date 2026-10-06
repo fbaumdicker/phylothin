@@ -13,7 +13,7 @@ If you use *PhyloThin* in your research, please cite the accompanying manuscript
 > Hannah Götsch, and Franz Baumdicker (2026).
 > **Hidden but Expanding Sampling Bias Distorts Prokaryotic Genome Collections.**
 > *bioRxiv*.
-> https://doi.org/DOI
+> https://doi.org/10.64898/2026.09.29.755372
 
 We presented a [poster](https://github.com/fbaumdicker/phylothin/blob/main/doc/poster.pdf) at the conferences LEGEND2025 and ECCB2026 introducing *PhyloThin* and showcasing its applications. Explore the paper and poster to learn more about the method and its use cases.
 
