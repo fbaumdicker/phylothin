@@ -1,6 +1,8 @@
 <p align="right"> <img src="/doc/phylothin_logo.jpg" width="200"> </p>
 
-# *PhyloThin* 
+# *PhyloThin*
+
+![Version](https://img.shields.io/github/v/release/fbaumdicker/phylothin)
 
 This github repository provides the software *PhyloThin*.
 
@@ -163,4 +165,4 @@ See [LICENSE](LICENSE) for the complete license text.
 Copyright © 2026 Hannah Götsch and Franz Baumdicker.
 
 
-**Date: 23.09.2026**
+**Date: 09.10.2026**
