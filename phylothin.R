@@ -1,5 +1,5 @@
-## PhyloThin: R-script for removing oversampled genomes from phylogenetic tree
-
+# PhyloThin: R-script for removing oversampled genomes from phylogenetic tree
+# Version: 1.0.0
 # Copyright (C) 2026 Hannah Götsch and Franz Baumdicker
 
 # Compile this code using:
