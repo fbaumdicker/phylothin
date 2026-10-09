@@ -1,5 +1,5 @@
-## subsampling-PhyloThin: R-script for subsampling large phylogenetic trees and applying PhyloThin
-
+# subsampling-PhyloThin: R-script for subsampling large phylogenetic trees and applying PhyloThin
+# Version: 1.0.0
 # Copyright (C) 2026 Hannah Götsch and Franz Baumdicker
 
 # Compile this code using:
