@@ -402,7 +402,15 @@ while(removed && num_start - num_removed > 2 && local_length > 0){ # ensure to h
         geom_conv <- geom_conv[1:(geom_max+1)] # reduce length back to geom_max
         # cumulative probabilities (cdf)
         conv_cdf <- cumsum(geom_conv)
-        if (conv_cdf[floor(test[j])+1] < alpha_2) {
+        
+        if (floor(test[j]) > geom_max){ 
+          if (conv_cdf[geom_max+1] < alpha_2) { # otherwise coal-sum for sure large enough
+            stop(paste("bug-fixing in the removing step needed:", 
+                      "parameter geom_max must be increased to at least",
+                       floor(test[j]), "for the removal algorithm to work.",
+                       "This error may occur when the mutation rate is very low."))
+          }
+        } else if (conv_cdf[floor(test[j])+1] < alpha_2) {
           print(paste("Test on sum of", j, "last coalescent interval has been successful."))
           cutting_step() # cutting
           testing_sum <- F
