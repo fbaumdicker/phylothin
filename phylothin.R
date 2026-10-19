@@ -168,6 +168,17 @@ if (length(c(which(cintervals$interval.length < 0))) > 0){
   print("Warning: some coalescent intervals are negative? check your tree!")
 }
 
+# potential outgroup detection
+root_subtrees  <- um_tree$edge[um_tree$edge[, 1] == num_start+1, 2] # children of the root (nodel-label of root is n+1)
+subtrees_sizes <- node.depth(um_tree)[root_subtrees] # tips below each child
+if (cintervals$interval.length[um_tree$Nnode]/cintervals$total.depth > 0.85 & # T_2/T_MRCA > 0.85 (should be ~0.5)
+    min(subtrees_sizes)/num_start < 0.025 # relative size of the smaller subtree split at root (should be ~0.5)
+    ){
+  print(paste("Warning: Possible outgroup detected! Maybe check your tree...",
+              "PhyloThin does not handle outgroups separately and analyzes the full tree, including the potential outgroup.",
+              "This does not affect the results as long as the sample size is sufficiently large."))
+}
+
 # assume that approx. (at least) k (< m+1) samples don't contribute to oversampling
 
 cs1 <- cumsum(choose(2:um_tree$Nnode,2) * cintervals$interval.length[um_tree$Nnode:2])
